@@ -9,14 +9,11 @@ SCREEN_HEIGHT = 600
 GRAVITY = 1
 JUMP_STRENGTH = 19.8
 LOW_JUMP_STRENGTH = 15
-BALL_SPEED = 10
 MOUSE_SPEED = 5
-
-# Цвета
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
+BALL_SPEED = 10
 GRAY = (128, 128, 128)
 PINK = (255, 182, 193)
+BLACK = (0, 0, 0)
 
 # Создание окна
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))  # задаем размеры экрана
@@ -28,29 +25,10 @@ clock = pygame.time.Clock()
 def load_image(name, scale=1):
     image = pygame.image.load(name)  # загрузка изображения по заданному пути
     if scale != 1:
-        new_size = (
-        int(image.get_width() * scale), int(image.get_height() * scale))  # get_width/get_height-функции из pygame
+        new_size = (int(image.get_width() * scale),
+                    int(image.get_height() * scale))  # get_width/get_height-функции из pygame
         image = pygame.transform.scale(image, new_size)  # меняет масштаб изображения на заданный в предыдущей строке
     return image.convert_alpha()  # заменяем прозрачные пиксели на черный
-
-#Загрузка фонов
-backgrounds = []
-for i in range(1, 5): #цикл для загрузки 4 фонов
-    bg = load_image(f"fon{i}.png") #загружен файлы, которые отвечают за фон
-    if bg.get_width() != SCREEN_WIDTH or bg.get_height() != SCREEN_HEIGHT: #меняем размер фона на размер экрана
-        bg = pygame.transform.scale(bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
-    backgrounds.append(bg)
-
-current_bg = 0
-bg_x = 0
-
-
-#Функция для определения цвета текста в зависимости от фона
-def get_text_color():
-    if current_bg == 1 or current_bg == 3:
-        return WHITE
-    else:
-        return BLACK
 
 
 # Загрузка спрайтов кота
@@ -86,43 +64,6 @@ class Ball(pygame.sprite.Sprite):  # pygame.sprite.Sprite-класс в pygame, 
         if self.rect.left > SCREEN_WIDTH:  # проверка на выход шара за правую границу
             self.kill()
 
-#Мышь (враг)
-class Mouse(pygame.sprite.Sprite):
-    def __init__(self, target_y):
-        super().__init__()
-        self.image = pygame.Surface((50, 25), pygame.SRCALPHA)  # Увеличили ширину для хвоста
-        # Рисуем мышку
-        pygame.draw.ellipse(self.image, GRAY, (0, 5, 35, 15))  # Тело
-        pygame.draw.ellipse(self.image, PINK, (32, 9, 6, 5))  # Носик
-        pygame.draw.circle(self.image, BLACK, (34, 10), 1)  # Ноздря
-
-        # Глаза
-        pygame.draw.circle(self.image, BLACK, (10, 9), 2)  # Левый глаз
-        pygame.draw.circle(self.image, BLACK, (20, 9), 2)  # Правый глаз
-
-        # Уши
-        pygame.draw.circle(self.image, GRAY, (8, 3), 5)  # Левое ухо
-        pygame.draw.circle(self.image, GRAY, (25, 3), 5)  # Правое ухо
-        pygame.draw.circle(self.image, PINK, (8, 3), 2)  # Внутреннее левое ухо
-        pygame.draw.circle(self.image, PINK, (25, 3), 2)  # Внутреннее правое ухо
-
-        # Лапки
-        pygame.draw.ellipse(self.image, GRAY, (5, 18, 4, 3))  # Передняя лапка
-        pygame.draw.ellipse(self.image, GRAY, (15, 18, 4, 3))  # Задняя лапка
-
-        # Хвост
-        pygame.draw.line(self.image, GRAY, (0, 12), (-12, 12), 2)
-
-        self.rect = self.image.get_rect()
-        # Появляется с правого края на фиксированной высоте (ниже)
-        self.rect.left = SCREEN_WIDTH
-        self.rect.centery = target_y  # Фиксированная высота
-        self.speed = MOUSE_SPEED
-
-    def update(self):
-        self.rect.x -= self.speed
-        if self.rect.right < 0:
-            self.kill()
 
 # Спрайты кота
 class Cat(pygame.sprite.Sprite):
@@ -228,53 +169,42 @@ class Cat(pygame.sprite.Sprite):
         return self.mouse_spawn_height
 
 
-#Предметы для сбора
-class Item(pygame.sprite.Sprite):
-    def __init__(self, type):
+# Мышь (враг)
+class Mouse(pygame.sprite.Sprite):
+    def __init__(self, target_y):
         super().__init__()
-        self.type = type #присваиваем тип объекта
+        self.image = pygame.Surface((50, 25), pygame.SRCALPHA)  # Увеличили ширину для хвоста
+        # Рисуем мышку
+        pygame.draw.ellipse(self.image, GRAY, (0, 5, 35, 15))  # Тело
+        pygame.draw.ellipse(self.image, PINK, (32, 9, 6, 5))  # Носик
+        pygame.draw.circle(self.image, BLACK, (34, 10), 1)  # Ноздря
 
-        colors = {
-            "coin": YELLOW,
-            "fish": (100, 100, 255),
-            "meat": (200, 100, 100),
-            "milk": WHITE
-        }
+        # Глаза
+        pygame.draw.circle(self.image, BLACK, (10, 9), 2)  # Левый глаз
+        pygame.draw.circle(self.image, BLACK, (20, 9), 2)  # Правый глаз
 
-        sizes = {
-            "coin": (25, 25),
-            "fish": (35, 15),
-            "meat": (30, 20),
-            "milk": (28, 28)
-        }
+        # Уши
+        pygame.draw.circle(self.image, GRAY, (8, 3), 5)  # Левое ухо
+        pygame.draw.circle(self.image, GRAY, (25, 3), 5)  # Правое ухо
+        pygame.draw.circle(self.image, PINK, (8, 3), 2)  # Внутреннее левое ухо
+        pygame.draw.circle(self.image, PINK, (25, 3), 2)  # Внутреннее правое ухо
 
-        self.image = pygame.Surface(sizes[type], pygame.SRCALPHA) #прозрачная поверхность
+        # Лапки
+        pygame.draw.ellipse(self.image, GRAY, (5, 18, 4, 3))  # Передняя лапка
+        pygame.draw.ellipse(self.image, GRAY, (15, 18, 4, 3))  # Задняя лапка
 
-        if type == "coin":
-            pygame.draw.circle(self.image, YELLOW, (12, 12), 12)
-            pygame.draw.circle(self.image, (200, 200, 0), (12, 12), 8)
-        elif type == "fish":
-            pygame.draw.ellipse(self.image, (100, 100, 255), (0, 0, 30, 15))
-            pygame.draw.polygon(self.image, (100, 100, 255), [(30, 7), (35, 2), (35, 12)])
-            pygame.draw.circle(self.image, BLACK, (5, 5), 2)
-        elif type == "meat":
-            pygame.draw.ellipse(self.image, (200, 100, 100), (0, 5, 30, 15))
-            pygame.draw.ellipse(self.image, (150, 75, 75), (5, 0, 20, 10))
-        elif type == "milk":
-            pygame.draw.rect(self.image, WHITE, (5, 5, 18, 18))
-            pygame.draw.rect(self.image, (200, 200, 255), (8, 8, 12, 12))
-            pygame.draw.rect(self.image, BLUE, (5, 2, 18, 4))
+        # Хвост
+        pygame.draw.line(self.image, GRAY, (0, 12), (-12, 12), 2)
 
-        self.rect = self.image.get_rect() #создает прямоугольник под изображение
-
-        if type == "coin":
-            self.rect.y = random.randint(SCREEN_HEIGHT - 200, SCREEN_HEIGHT - 100)
-        else:
-            self.rect.y = SCREEN_HEIGHT - 70
-
+        self.rect = self.image.get_rect()
+        # Появляется с правого края на фиксированной высоте (ниже)
         self.rect.left = SCREEN_WIDTH
+        self.rect.centery = target_y  # Фиксированная высота
+        self.speed = MOUSE_SPEED
 
     def update(self):
-        self.rect.x -= ITEM_SPEED
+        self.rect.x -= self.speed
         if self.rect.right < 0:
             self.kill()
+
+
