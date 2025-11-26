@@ -1,4 +1,6 @@
 import pygame
+import random
+import sys
 
 # Инициализация Pygame
 pygame.init()  # инициализируем библиотеку, чтобы использовать функции
@@ -11,11 +13,24 @@ JUMP_STRENGTH = 19.8
 LOW_JUMP_STRENGTH = 15
 BALL_SPEED = 10
 MOUSE_SPEED = 5
+FPS = 60
+PLAYER_SPEED = 8
+OBSTACLE_SPEED = 7
+ITEM_SPEED = 7
+BACKGROUND_SPEED = 2
 
 # Цвета
 BLACK = (0, 0, 0)
 GRAY = (128, 128, 128)
 PINK = (255, 182, 193)
+WHITE = (255, 255, 255)
+YELLOW = (255, 255, 0)
+BLUE = (0, 0, 255)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+ORANGE = (255, 165, 0)
+BROWN = (139, 69, 19)
+PURPLE = (128, 0, 128)
 
 # Создание окна
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))  # задаем размеры экрана
@@ -32,6 +47,24 @@ def load_image(name, scale=1):
         image = pygame.transform.scale(image, new_size)  # меняет масштаб изображения на заданный в предыдущей строке
     return image.convert_alpha()  # заменяем прозрачные пиксели на черный
 
+#Загрузка фонов
+backgrounds = []
+for i in range(1, 5): #цикл для загрузки 4 фонов
+    bg = load_image(f"fon{i}.png") #загружен файлы, которые отвечают за фон
+    if bg.get_width() != SCREEN_WIDTH or bg.get_height() != SCREEN_HEIGHT: #меняем размер фона на размер экрана
+        bg = pygame.transform.scale(bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
+    backgrounds.append(bg)
+
+current_bg = 0
+bg_x = 0
+
+
+#Функция для определения цвета текста в зависимости от фона
+def get_text_color():
+    if current_bg == 1 or current_bg == 3:
+        return WHITE
+    else:
+        return BLACK
 
 # Загрузка спрайтов кота
 cat_stand = load_image("cat1.png", 1.6)
@@ -103,6 +136,23 @@ class Mouse(pygame.sprite.Sprite):
         self.rect.x -= self.speed
         if self.rect.right < 0:
             self.kill()
+
+#Загрузка преград
+pregrada_images = []
+pregrada_types = []
+
+for i in range(1, 4):
+    if i == 2:
+        pregrada = load_image(f"pregrada{i}.png", 0.3)
+        pregrada_types.append("low_jump")
+    elif i == 3:
+        pregrada = load_image(f"pregrada{i}.png", 0.50)
+        pregrada_types.append("cloud")
+    else:
+        pregrada = load_image(f"pregrada{i}.png", 0.2)
+        pregrada_types.append("jump")
+
+    pregrada_images.append(pregrada)
 
 # Спрайты кота
 class Cat(pygame.sprite.Sprite):
@@ -206,3 +256,144 @@ class Cat(pygame.sprite.Sprite):
     def get_mouse_spawn_height(self):
         # Возвращает фиксированную высоту для появления мышей (НИЖЕ)
         return self.mouse_spawn_height
+
+# Препятствия
+class Obstacle(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        index = random.randint(0, len(pregrada_images) - 1)
+        self.image = pregrada_images[index]
+        self.type = pregrada_types[index]
+        self.rect = self.image.get_rect()
+        if self.type == "cloud":
+            self.rect.bottom = SCREEN_HEIGHT - 80
+        else:
+            self.rect.bottom = SCREEN_HEIGHT - 50
+
+        self.rect.left = SCREEN_WIDTH #чтобы препятствия появлялись только справа
+
+    def update(self): #удаление препятствий при их касании левого края окна
+        self.rect.x -= OBSTACLE_SPEED
+        if self.rect.right < 0:
+            self.kill()
+
+#Предметы для сбора
+class Item(pygame.sprite.Sprite):
+    def __init__(self, type):
+        super().__init__()
+        self.type = type #присваиваем тип объекта
+
+        colors = {
+            "coin": YELLOW,
+            "fish": (100, 100, 255),
+            "meat": (200, 100, 100),
+            "milk": WHITE
+        }
+
+        sizes = {
+            "coin": (25, 25),
+            "fish": (35, 15),
+            "meat": (30, 20),
+            "milk": (28, 28)
+        }
+
+        self.image = pygame.Surface(sizes[type], pygame.SRCALPHA) #прозрачная поверхность
+
+        if type == "coin":
+            pygame.draw.circle(self.image, YELLOW, (12, 12), 12)
+            pygame.draw.circle(self.image, (200, 200, 0), (12, 12), 8)
+        elif type == "fish":
+            pygame.draw.ellipse(self.image, (100, 100, 255), (0, 0, 30, 15))
+            pygame.draw.polygon(self.image, (100, 100, 255), [(30, 7), (35, 2), (35, 12)])
+            pygame.draw.circle(self.image, BLACK, (5, 5), 2)
+        elif type == "meat":
+            pygame.draw.ellipse(self.image, (200, 100, 100), (0, 5, 30, 15))
+            pygame.draw.ellipse(self.image, (150, 75, 75), (5, 0, 20, 10))
+        elif type == "milk":
+            pygame.draw.rect(self.image, WHITE, (5, 5, 18, 18))
+            pygame.draw.rect(self.image, (200, 200, 255), (8, 8, 12, 12))
+            pygame.draw.rect(self.image, BLUE, (5, 2, 18, 4))
+
+        self.rect = self.image.get_rect() #создает прямоугольник под изображение
+
+        if type == "coin":
+            self.rect.y = random.randint(SCREEN_HEIGHT - 200, SCREEN_HEIGHT - 100)
+        else:
+            self.rect.y = SCREEN_HEIGHT - 70
+
+        self.rect.left = SCREEN_WIDTH
+
+    def update(self):
+        self.rect.x -= ITEM_SPEED
+        if self.rect.right < 0:
+            self.kill()
+
+#Функция проверки пересечения с препятствиями
+def check_collision_with_obstacles(rect):
+    for obstacle in obstacles:
+        if rect.colliderect(obstacle.rect):
+            return True
+    return False
+
+#Группы спрайтов
+all_sprites = pygame.sprite.Group()
+obstacles = pygame.sprite.Group()
+items = pygame.sprite.Group()
+mice = pygame.sprite.Group()
+yarn_balls = pygame.sprite.Group()
+
+#Создание кота
+cat = Cat()
+all_sprites.add(cat)
+
+# Переменные игры
+score = 0
+coins = 0
+food = 0
+milk = 0
+mice_killed = 0
+high_score = 0
+game_over = False
+game_paused = False
+spawn_timer = 0
+item_timer = 0
+mouse_timer = 0
+next_mouse_spawn = random.randint(180, 360)#время появления мыши
+font = pygame.font.SysFont('arial', 20)#шрифты
+small_font = pygame.font.SysFont('arial', 16)
+title_font = pygame.font.SysFont('arial', 36, bold=True)
+
+
+#Функция отрисовки текста
+def draw_text(text, color, x, y, font_obj=font):
+    img = font_obj.render(text, True, color) #render() создает изображение с текстом
+    screen.blit(img, (x, y)) #blit() рисует изображение текста на основном экране
+
+
+#Функция сброса игры
+def reset_game():
+    global score, coins, food, milk, mice_killed, game_over, game_paused, spawn_timer, item_timer, mouse_timer, next_mouse_spawn
+    #выводятся очки при окончании игры
+    for sprite in all_sprites:
+        if sprite != cat:
+            sprite.kill()
+
+    score = 0
+    coins = 0
+    food = 0
+    milk = 0
+    mice_killed = 0
+    game_over = False
+    game_paused = False
+    spawn_timer = 0
+    item_timer = 0
+    mouse_timer = 0
+    next_mouse_spawn = random.randint(180, 360)
+
+    cat.rect.center = (100, SCREEN_HEIGHT - 100)
+    cat.velocity_y = 0
+    cat.is_jumping = False
+    cat.is_clouding = False
+    cat.can_shoot = True
+    cat.shoot_cooldown = 0
+
