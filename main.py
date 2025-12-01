@@ -5,9 +5,8 @@ import json
 import os
 import atexit  # Добавляем модуль для регистрации функций при выходе
 
-
 # Инициализация Pygame
-pygame.init() #инициализируем библиотеку, чтобы использовать функции
+pygame.init()  # инициализируем библиотеку, чтобы использовать функции
 
 # Константы
 SCREEN_WIDTH = 800
@@ -23,10 +22,10 @@ BACKGROUND_SPEED = 2
 MOUSE_SPEED = 5
 BALL_SPEED = 10
 
-
 # Глобальная переменная для рекорда
 global_high_score = 0
 score_updated = False  # Флаг, что рекорд обновлен и нужно сохранить
+new_record_achieved = False  # Флаг, что достигнут новый рекорд
 HIGH_SCORE_FILE = "high_score.json"
 
 # Цвета
@@ -41,10 +40,11 @@ BROWN = (139, 69, 19)
 PURPLE = (128, 0, 128)
 GRAY = (128, 128, 128)
 PINK = (255, 182, 193)
+GOLD = (255, 215, 0)  # Золотой цвет для нового рекорда
 
-#Создание окна
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT)) #задаем размеры экрана
-pygame.display.set_caption("Бегущий кот") #задает название игры(сверху)
+# Создание окна
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))  # задаем размеры экрана
+pygame.display.set_caption("Бегущий кот")  # задает название игры(сверху)
 clock = pygame.time.Clock()
 
 
@@ -92,40 +92,43 @@ def save_high_score():
 
 def update_high_score(new_score):
     """Обновление рекорда"""
-    global global_high_score, score_updated
+    global global_high_score, score_updated, new_record_achieved
 
     if new_score > global_high_score:
         global_high_score = int(new_score)
         score_updated = True
+        new_record_achieved = True  # Устанавливаем флаг нового рекорда
         save_high_score()
 
     return global_high_score
 
+
 # Регистрируем функцию сохранения при выходе из программы
 atexit.register(save_high_score)
 
-#Загрузка изображения name
+
+# Загрузка изображения name
 def load_image(name, scale=1):
-    image = pygame.image.load(name) #загрузка изображения по заданному пути
+    image = pygame.image.load(name)  # загрузка изображения по заданному пути
     if scale != 1:
-        new_size = (int(image.get_width() * scale), int(image.get_height() * scale)) #get_width/get_height-функции из pygame
-        image = pygame.transform.scale(image, new_size) #меняет масштаб изображения на заданный в предыдущей строке
-    return image.convert_alpha() #заменяем прозрачные пиксели на черный
+        new_size = (int(image.get_width() * scale),
+                    int(image.get_height() * scale))  # get_width/get_height-функции из pygame
+        image = pygame.transform.scale(image, new_size)  # меняет масштаб изображения на заданный в предыдущей строке
+    return image.convert_alpha()  # заменяем прозрачные пиксели на черный
 
 
-
-#Загрузка фонов
+# Загрузка фонов
 backgrounds = []
-for i in range(1, 5): #цикл для загрузки 4 фонов
-    bg = load_image(f"fon{i}.png") #загружен файлы, которые отвечают за фон
-    if bg.get_width() != SCREEN_WIDTH or bg.get_height() != SCREEN_HEIGHT: #меняем размер фона на размер экрана
+for i in range(1, 5):  # цикл для загрузки 4 фонов
+    bg = load_image(f"fon{i}.png")  # загружен файлы, которые отвечают за фон
+    if bg.get_width() != SCREEN_WIDTH or bg.get_height() != SCREEN_HEIGHT:  # меняем размер фона на размер экрана
         bg = pygame.transform.scale(bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
     backgrounds.append(bg)
 
 current_bg = 0
 bg_x = 0
 
-#music
+# music
 # музыка
 music = []
 pygame.mixer.init()
@@ -133,7 +136,7 @@ pygame.mixer.music.load("music1.mp3")
 pygame.mixer.music.play(-1)
 
 
-#Функция для определения цвета текста в зависимости от фона
+# Функция для определения цвета текста в зависимости от фона
 def get_text_color():
     if current_bg == 1 or current_bg == 3:
         return WHITE
@@ -141,12 +144,12 @@ def get_text_color():
         return BLACK
 
 
-#Загрузка спрайтов кота
+# Загрузка спрайтов кота
 cat_stand = load_image("cat1.png", 1.6)
 cat_jump = load_image("cat2.png", 1.6)
 cat_cloud = load_image("cat3.png", 1.2)
 
-#меняем размеры кота, чтобы создавалась иллюзия движения
+# меняем размеры кота, чтобы создавалась иллюзия движения
 cat_run_frames = []
 for i in range(2):
     frame = cat_stand.copy()
@@ -155,27 +158,27 @@ for i in range(2):
     cat_run_frames.append(frame)
 
 
-#выстрел
-class Ball(pygame.sprite.Sprite): #pygame.sprite.Sprite-класс в pygame, который работает с спрайтами для 2d-графики
+# выстрел
+class Ball(pygame.sprite.Sprite):  # pygame.sprite.Sprite-класс в pygame, который работает с спрайтами для 2d-графики
     def __init__(self, x, y):
-        super().__init__() #метод, соединяющий pygame.sprite.Sprite
-        self.image = pygame.Surface((30, 30), pygame.SRCALPHA) #создаем поле под шар
+        super().__init__()  # метод, соединяющий pygame.sprite.Sprite
+        self.image = pygame.Surface((30, 30), pygame.SRCALPHA)  # создаем поле под шар
         # Рисуем шар
         pygame.draw.circle(self.image, (200, 200, 255), (14, 14), 14)
 
-        self.rect = self.image.get_rect() #создаем прямоугольное пространство, под мяч
-        self.rect.centerx = x #задаем центр мяча
+        self.rect = self.image.get_rect()  # создаем прямоугольное пространство, под мяч
+        self.rect.centerx = x  # задаем центр мяча
         self.rect.centery = y
-        self.speed = BALL_SPEED #задаем скорость движения шара
+        self.speed = BALL_SPEED  # задаем скорость движения шара
 
-    #перемещение шара
+    # перемещение шара
     def update(self):
         self.rect.x += self.speed
-        if self.rect.left > SCREEN_WIDTH: #проверка на выход шара за правую границу
+        if self.rect.left > SCREEN_WIDTH:  # проверка на выход шара за правую границу
             self.kill()
 
 
-#Мышь (враг)
+# Мышь (враг)
 class Mouse(pygame.sprite.Sprite):
     def __init__(self, target_y):
         super().__init__()
@@ -214,7 +217,7 @@ class Mouse(pygame.sprite.Sprite):
             self.kill()
 
 
-#Загрузка преград
+# Загрузка преград
 pregrada_images = []
 pregrada_types = []
 
@@ -231,18 +234,19 @@ for i in range(1, 4):
 
     pregrada_images.append(pregrada)
 
-#Спрайты кота
+
+# Спрайты кота
 class Cat(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        #задаем спрайты  на все состояния кота
+        # задаем спрайты  на все состояния кота
         self.run_frames_right = cat_run_frames
         self.jump_frame_right = cat_jump
         self.stand_frame_right = cat_stand
         self.cloud_frame_right = cat_cloud
 
         self.current_frame = 0
-        self.image = self.run_frames_right[self.current_frame] #отображение текущнго спрайта через массив спрайтов
+        self.image = self.run_frames_right[self.current_frame]  # отображение текущнго спрайта через массив спрайтов
         self.rect = self.image.get_rect()
         self.rect.center = (100, SCREEN_HEIGHT - 100)
         self.velocity_y = 0
@@ -263,19 +267,19 @@ class Cat(pygame.sprite.Sprite):
         self.velocity_y += GRAVITY
         self.rect.y += self.velocity_y
 
-        #проверка находится ли кот на земле
+        # проверка находится ли кот на земле
         if self.rect.bottom > self.ground_level:
             self.rect.bottom = self.ground_level
             self.velocity_y = 0
             self.is_jumping = False
 
-        #Плавная смена анимации
+        # Плавная смена анимации
         self.animation_counter += 1
         if self.animation_counter >= self.animation_speed:
             self.animation_counter = 0
             self.current_frame = (self.current_frame + 1) % len(self.run_frames_right)
 
-            #смена картинок при различных действиях
+            # смена картинок при различных действиях
             if self.is_jumping:
                 self.image = self.jump_frame_right
             elif self.is_clouding:
@@ -283,7 +287,7 @@ class Cat(pygame.sprite.Sprite):
             else:
                 self.image = self.run_frames_right[self.current_frame]
 
-        #кулдаун стрельбы, чтобы между выстрелами были промежутки
+        # кулдаун стрельбы, чтобы между выстрелами были промежутки
         if not self.can_shoot:
             self.shoot_cooldown += 1
             if self.shoot_cooldown >= 20:
@@ -348,19 +352,19 @@ class Obstacle(pygame.sprite.Sprite):
         else:
             self.rect.bottom = SCREEN_HEIGHT - 50
 
-        self.rect.left = SCREEN_WIDTH #чтобы препятствия появлялись только справа
+        self.rect.left = SCREEN_WIDTH  # чтобы препятствия появлялись только справа
 
-    def update(self): #удаление препятствий при их касании левого края окна
+    def update(self):  # удаление препятствий при их касании левого края окна
         self.rect.x -= OBSTACLE_SPEED
         if self.rect.right < 0:
             self.kill()
 
 
-#Предметы для сбора
+# Предметы для сбора
 class Item(pygame.sprite.Sprite):
     def __init__(self, type):
         super().__init__()
-        self.type = type #присваиваем тип объекта
+        self.type = type  # присваиваем тип объекта
 
         colors = {
             "coin": YELLOW,
@@ -376,7 +380,7 @@ class Item(pygame.sprite.Sprite):
             "milk": (28, 28)
         }
 
-        self.image = pygame.Surface(sizes[type], pygame.SRCALPHA) #прозрачная поверхность
+        self.image = pygame.Surface(sizes[type], pygame.SRCALPHA)  # прозрачная поверхность
 
         if type == "coin":
             pygame.draw.circle(self.image, YELLOW, (12, 12), 12)
@@ -393,7 +397,7 @@ class Item(pygame.sprite.Sprite):
             pygame.draw.rect(self.image, (200, 200, 255), (8, 8, 12, 12))
             pygame.draw.rect(self.image, BLUE, (5, 2, 18, 4))
 
-        self.rect = self.image.get_rect() #создает прямоугольник под изображение
+        self.rect = self.image.get_rect()  # создает прямоугольник под изображение
 
         if type == "coin":
             self.rect.y = random.randint(SCREEN_HEIGHT - 200, SCREEN_HEIGHT - 100)
@@ -408,7 +412,7 @@ class Item(pygame.sprite.Sprite):
             self.kill()
 
 
-#Функция проверки пересечения с препятствиями
+# Функция проверки пересечения с препятствиями
 def check_collision_with_obstacles(rect):
     for obstacle in obstacles:
         if rect.colliderect(obstacle.rect):
@@ -416,14 +420,14 @@ def check_collision_with_obstacles(rect):
     return False
 
 
-#Группы спрайтов
+# Группы спрайтов
 all_sprites = pygame.sprite.Group()
 obstacles = pygame.sprite.Group()
 items = pygame.sprite.Group()
 mice = pygame.sprite.Group()
 yarn_balls = pygame.sprite.Group()
 
-#Создание кота
+# Создание кота
 cat = Cat()
 all_sprites.add(cat)
 
@@ -439,22 +443,25 @@ game_paused = False
 spawn_timer = 0
 item_timer = 0
 mouse_timer = 0
-next_mouse_spawn = random.randint(180, 360)#время появления мыши
-font = pygame.font.SysFont('arial', 20)#шрифты
+next_mouse_spawn = random.randint(180, 360)  # время появления мыши
+font = pygame.font.SysFont('arial', 20)  # шрифты
 small_font = pygame.font.SysFont('arial', 16)
 title_font = pygame.font.SysFont('arial', 36, bold=True)
+record_font = pygame.font.SysFont('arial', 42, bold=True)  # Большой шрифт для нового рекорда
 
 
-#Функция отрисовки текста
-def draw_text(text, color, x, y, font_obj=font):
-    img = font_obj.render(text, True, color) #render() создает изображение с текстом
-    screen.blit(img, (x, y)) #blit() рисует изображение текста на основном экране
+# Функция отрисовки текста
+def draw_text(text, color, x, y, font_obj=font, center=False):
+    img = font_obj.render(text, True, color)  # render() создает изображение с текстом
+    if center:
+        x -= img.get_width() // 2
+    screen.blit(img, (x, y))  # blit() рисует изображение текста на основном экране
 
 
-#Функция сброса игры
+# Функция сброса игры
 def reset_game():
-    global score, coins, food, milk, mice_killed, game_over, game_paused, spawn_timer, item_timer, mouse_timer, next_mouse_spawn
-    #выводятся очки при окончании игры
+    global score, coins, food, milk, mice_killed, game_over, game_paused, spawn_timer, item_timer, mouse_timer, next_mouse_spawn, new_record_achieved
+    # выводятся очки при окончании игры
     for sprite in all_sprites:
         if sprite != cat:
             sprite.kill()
@@ -470,6 +477,7 @@ def reset_game():
     item_timer = 0
     mouse_timer = 0
     next_mouse_spawn = random.randint(180, 360)
+    new_record_achieved = False  # Сбрасываем флаг нового рекорда
 
     cat.rect.center = (100, SCREEN_HEIGHT - 100)
     cat.velocity_y = 0
@@ -479,7 +487,7 @@ def reset_game():
     cat.shoot_cooldown = 0
 
 
-#Функция для определения позиции текста статистики
+# Функция для определения позиции текста статистики
 def get_stats_position():
     base_x = SCREEN_WIDTH - 150
     test_text = f"Счет: {int(score)}"
@@ -487,18 +495,18 @@ def get_stats_position():
     return base_x
 
 
-#Главный игровой цикл
+# Главный игровой цикл
 running = True
 while running:
-    clock.tick(FPS) #скорость выполнения игрового цикла.
+    clock.tick(FPS)  # скорость выполнения игрового цикла.
 
-    for event in pygame.event.get(): #прописываем клавиши
+    for event in pygame.event.get():  # прописываем клавиши
         if event.type == pygame.QUIT:
             update_high_score(score)
             save_high_score()
             running = False
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_p or event.key == ord('з') :
+            if event.key == pygame.K_p or event.key == ord('з'):
                 game_paused = not game_paused
             elif not game_paused and not game_over:
                 if event.key == pygame.K_SPACE:
@@ -512,59 +520,60 @@ while running:
                     if yarn_ball:
                         yarn_balls.add(yarn_ball)
                         all_sprites.add(yarn_ball)
-                elif event.key == pygame.K_b or event.key == ord('и') :
+                elif event.key == pygame.K_b or event.key == ord('и'):
                     current_bg = (current_bg + 1) % len(backgrounds)
             elif (event.key == pygame.K_r or event.key == ord('к')) and game_over:
                 reset_game()
 
-    keys = pygame.key.get_pressed() #происходит при зажатии клавиш
+    keys = pygame.key.get_pressed()  # происходит при зажатии клавиш
     if not keys[pygame.K_DOWN]:
         cat.stand_up()
 
     if not game_over and not game_paused:
         all_sprites.update()
 
-        bg_x -= BACKGROUND_SPEED #прокрутка фона
-        if bg_x <= -SCREEN_WIDTH: #когда фон полностью ушел за левый край
-            bg_x = 0 #сбрасываем позицию в начало
+        bg_x -= BACKGROUND_SPEED  # прокрутка фона
+        if bg_x <= -SCREEN_WIDTH:  # когда фон полностью ушел за левый край
+            bg_x = 0  # сбрасываем позицию в начало
 
-        #Спавн(появление) препятствий
+        # Спавн(появление) препятствий
         spawn_timer += 1
         if spawn_timer >= 90:
             spawn_timer = 0
-            obstacle = Obstacle() #Создание новых препятствий через регулярные промежутки времени(Создает новый экземпляр класса)
-            obstacles.add(obstacle) #добавляет в специальную группу для препятствий
-            all_sprites.add(obstacle) #добавляет в общую группу всех спрайтов
+            obstacle = Obstacle()  # Создание новых препятствий через регулярные промежутки времени(Создает новый экземпляр класса)
+            obstacles.add(obstacle)  # добавляет в специальную группу для препятствий
+            all_sprites.add(obstacle)  # добавляет в общую группу всех спрайтов
 
-        #Спавн предметов
+        # Спавн предметов
         item_timer += 1
         if item_timer >= 45:
             item_timer = 0
             item_type = random.choice(["coin", "fish", "meat", "milk"])
 
-            max_attempts = 10 #10 попыток создать предмет в свободном месте
+            max_attempts = 10  # 10 попыток создать предмет в свободном месте
             for attempt in range(max_attempts):
-                item = Item(item_type) #Создает предмет выбранного типа
+                item = Item(item_type)  # Создает предмет выбранного типа
 
-                if not check_collision_with_obstacles(item.rect): #проверяет, не пересекается ли предмет с существующими препятствиями
+                if not check_collision_with_obstacles(
+                        item.rect):  # проверяет, не пересекается ли предмет с существующими препятствиями
                     items.add(item)
                     all_sprites.add(item)
                     break
                 else:
                     item.kill()
 
-        #Спавн мышек с разными промежутками на фиксированной низкой высоте
+        # Спавн мышек с разными промежутками на фиксированной низкой высоте
         mouse_timer += 1
         if mouse_timer >= next_mouse_spawn:
             mouse_timer = 0
             next_mouse_spawn = random.randint(180, 480)
 
-            #Мышь появляется на фиксированной НИЗКОЙ высоте
+            # Мышь появляется на фиксированной НИЗКОЙ высоте
             mouse = Mouse(cat.get_mouse_spawn_height())
             mice.add(mouse)
             all_sprites.add(mouse)
 
-        #Проверка столкновений с препятствиями
+        # Проверка столкновений с препятствиями
         hits = pygame.sprite.spritecollide(cat, obstacles, False)
         for hit in hits:
             if hit.type == "jump" and not cat.is_jumping:
@@ -577,15 +586,15 @@ while running:
                 game_over = True
                 update_high_score(score)
 
-        #Проверка столкновений с мышками
-        mouse_hits = pygame.sprite.spritecollide(cat, mice, False) #обнаружение столкновений
+        # Проверка столкновений с мышками
+        mouse_hits = pygame.sprite.spritecollide(cat, mice, False)  # обнаружение столкновений
         if mouse_hits:
             game_over = True
             update_high_score(score)
 
-        #Проверка попадания клубков в мышек
+        # Проверка попадания клубков в мышек
         for yarn_ball in yarn_balls:
-            mouse_hits = pygame.sprite.spritecollide(yarn_ball, mice, True) #удаление при столкновении
+            mouse_hits = pygame.sprite.spritecollide(yarn_ball, mice, True)  # удаление при столкновении
             for mouse in mouse_hits:
                 yarn_ball.kill()
                 mice_killed += 1
@@ -614,13 +623,13 @@ while running:
             high_score = score
         update_high_score(score)
 
-    #Рисуем фоны
+    # Рисуем фоны
     screen.blit(backgrounds[current_bg], (bg_x, 0))
     screen.blit(backgrounds[current_bg], (bg_x + SCREEN_WIDTH, 0))
 
-    #нижняя дощечка
+    # нижняя дощечка
     pygame.draw.rect(screen, BROWN, (0, SCREEN_HEIGHT - 50, SCREEN_WIDTH, 50))
-    for i in range(0, SCREEN_WIDTH, 20): #линии
+    for i in range(0, SCREEN_WIDTH, 20):  # линии
         pygame.draw.line(screen, (110, 60, 30), (i, SCREEN_HEIGHT - 50), (i, SCREEN_HEIGHT), 1)
 
     all_sprites.draw(screen)
@@ -636,7 +645,7 @@ while running:
     draw_text(f"Мыши: {mice_killed}", text_color, stats_x, 110)
     draw_text(f"Счет: {int(score)}", text_color, stats_x, 135)
 
-    #Отрисовка инструкций
+    # Отрисовка инструкций
     instructions = [
         "Управление:",
         "ПРОБЕЛ - Высокий прыжок",
@@ -651,7 +660,7 @@ while running:
     for i, instruction in enumerate(instructions):
         draw_text(instruction, text_color, 10, 10 + i * 20, small_font)
 
-    #Экран паузы
+    # Экран паузы
     if game_paused and not game_over:
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
         overlay.set_alpha(150)
@@ -661,20 +670,40 @@ while running:
         draw_text("ПАУЗА", WHITE, SCREEN_WIDTH // 2 - 60, SCREEN_HEIGHT // 2 - 40, title_font)
         draw_text("Нажми P для продолжения", WHITE, SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 10, small_font)
 
-    #Экран Game Over
+    # Экран Game Over
     if game_over:
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
         overlay.set_alpha(180)
         overlay.fill(BLACK)
         screen.blit(overlay, (0, 0))
 
-        draw_text("GAME OVER", RED, SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 80, title_font)
-        draw_text(f"Финальный счет: {int(score)}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 - 20)
-        draw_text(f"Собрано монет: {coins}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 10)
-        draw_text(f"Собрано еды: {food}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 40)
-        draw_text(f"Собрано молока: {milk}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 70)
-        draw_text(f"Убито мышек: {mice_killed}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 100)
-        draw_text("Нажми R для перезапуска", WHITE, SCREEN_WIDTH // 2 - 90, SCREEN_HEIGHT // 2 + 140, small_font)
+
+        # Отображение нового рекорда, если он достигнут
+        if new_record_achieved:
+            # Рисуем золотую рамку для нового рекорда
+            pygame.draw.rect(screen, GOLD, (SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 70, 400, 60), 4,
+                             border_radius=10)
+            pygame.draw.rect(screen, (30, 30, 30, 200), (SCREEN_WIDTH // 2 - 196, SCREEN_HEIGHT // 2 - 66, 392, 52),
+                             border_radius=8)
+
+            # Текст нового рекорда
+            draw_text("НОВЫЙ РЕКОРД!", GOLD, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 62, record_font, center=True)
+            # Смещаем остальную статистику ниже
+            stat_y_offset = 25
+        else:
+            stat_y_offset = 0
+
+        draw_text("GAME OVER", RED, SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 70 - stat_y_offset * 2, title_font)
+
+        draw_text(f"Финальный счет: {int(score)}", WHITE, SCREEN_WIDTH // 2 - 80,
+                  SCREEN_HEIGHT // 2 - 20 + stat_y_offset)
+        draw_text(f"Собрано монет: {coins}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 10 + stat_y_offset)
+        draw_text(f"Собрано еды: {food}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 40 + stat_y_offset)
+        draw_text(f"Собрано молока: {milk}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 70 + stat_y_offset)
+        draw_text(f"Убито мышек: {mice_killed}", WHITE, SCREEN_WIDTH // 2 - 80,
+                  SCREEN_HEIGHT // 2 + 100 + stat_y_offset)
+        draw_text("Нажми R для перезапуска", WHITE, SCREEN_WIDTH // 2 - 90, SCREEN_HEIGHT // 2 + 140 + stat_y_offset,
+                  small_font)
 
     pygame.display.flip()
 
