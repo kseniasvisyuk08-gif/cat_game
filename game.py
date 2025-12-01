@@ -3,6 +3,8 @@ import random
 import sys
 import json
 import os
+import atexit  # Добавляем модуль для регистрации функций при выходе
+
 
 # Инициализация Pygame
 pygame.init() #инициализируем библиотеку, чтобы использовать функции
@@ -21,6 +23,10 @@ BACKGROUND_SPEED = 2
 MOUSE_SPEED = 5
 BALL_SPEED = 10
 
+
+# Глобальная переменная для рекорда
+global_high_score = 0
+score_updated = False  # Флаг, что рекорд обновлен и нужно сохранить
 HIGH_SCORE_FILE = "high_score.json"
 
 # Цвета
@@ -41,25 +47,62 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT)) #задаем р
 pygame.display.set_caption("Бегущий кот") #задает название игры(сверху)
 clock = pygame.time.Clock()
 
+
+# Функции для работы с рекордом
 def load_high_score():
-    # Проверяем существует ли файл с рекордом
-    if os.path.exists(HIGH_SCORE_FILE):
-        file = open(HIGH_SCORE_FILE, 'r', encoding='utf-8') #utf-8 поддерживает все языки мира
-        data = json.load(file)
-        file.close()
-        return data.get("high_score", 0)
-    # Если файла не существует - возвращаем 0
+    """Загрузка рекорда из JSON файла"""
+    global global_high_score
+
+    if not os.path.exists(HIGH_SCORE_FILE):
+        global_high_score = 0
+        return 0
+
+    file = open(HIGH_SCORE_FILE, 'r', encoding='utf-8')
+    content = file.read()
+    file.close()
+
+    if not content.strip():
+        global_high_score = 0
+        return 0
+
+    data = json.loads(content)
+
+    if isinstance(data, dict) and "high_score" in data:
+        global_high_score = data["high_score"]
+        return global_high_score
+
+    global_high_score = 0
     return 0
 
-def save_high_score(score):
-    # Создаем словарь с данными для сохранения
-    data = {"high_score": int(score)}
-    # Открываем файл для записи (файл создается или перезаписывается)
+
+def save_high_score():
+    """Сохранение рекорда в JSON файл"""
+    global global_high_score, score_updated
+
+    if not score_updated:
+        return
+
+    data = {"high_score": int(global_high_score)}
     file = open(HIGH_SCORE_FILE, 'w', encoding='utf-8')
-    # Записываем данные в файл в формате JSON
     json.dump(data, file, ensure_ascii=False, indent=4)
-    # Закрываем файл
     file.close()
+
+    score_updated = False
+
+
+def update_high_score(new_score):
+    """Обновление рекорда"""
+    global global_high_score, score_updated
+
+    if new_score > global_high_score:
+        global_high_score = int(new_score)
+        score_updated = True
+        save_high_score()
+
+    return global_high_score
+
+# Регистрируем функцию сохранения при выходе из программы
+atexit.register(save_high_score)
 
 #Загрузка изображения name
 def load_image(name, scale=1):
@@ -451,6 +494,8 @@ while running:
 
     for event in pygame.event.get(): #прописываем клавиши
         if event.type == pygame.QUIT:
+            update_high_score(score)
+            save_high_score()
             running = False
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_p or event.key == ord('з') :
@@ -524,27 +569,19 @@ while running:
         for hit in hits:
             if hit.type == "jump" and not cat.is_jumping:
                 game_over = True
-                if score > high_score:
-                    high_score = int(score)
-                    save_high_score(high_score)
+                update_high_score(score)
             elif hit.type == "low_jump" and not cat.is_jumping:
                 game_over = True
-                if score > high_score:
-                    high_score = int(score)
-                    save_high_score(high_score)
+                update_high_score(score)
             elif hit.type == "cloud" and not cat.is_clouding:
                 game_over = True
-                if score > high_score:
-                    high_score = int(score)
-                    save_high_score(high_score)
+                update_high_score(score)
 
         #Проверка столкновений с мышками
         mouse_hits = pygame.sprite.spritecollide(cat, mice, False) #обнаружение столкновений
         if mouse_hits:
             game_over = True
-            if score > high_score:
-                high_score = int(score)
-                save_high_score(high_score)
+            update_high_score(score)
 
         #Проверка попадания клубков в мышек
         for yarn_ball in yarn_balls:
@@ -553,9 +590,7 @@ while running:
                 yarn_ball.kill()
                 mice_killed += 1
                 score += 50
-                if score > high_score:
-                    high_score = int(score)
-                    save_high_score(high_score)
+                update_high_score(score)
 
         # Проверка сбора предметов
         collected = pygame.sprite.spritecollide(cat, items, True)
@@ -577,6 +612,7 @@ while running:
 
         if score > high_score:
             high_score = score
+        update_high_score(score)
 
     #Рисуем фоны
     screen.blit(backgrounds[current_bg], (bg_x, 0))
