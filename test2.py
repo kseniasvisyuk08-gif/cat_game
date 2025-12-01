@@ -223,7 +223,7 @@ for i in range(1, 4):
         pregrada = load_image(f"pregrada{i}.png", 0.3)
         pregrada_types.append("low_jump")
     elif i == 3:
-        pregrada = load_image(f"pregrada{i}.png", 1.2)
+        pregrada = load_image(f"pregrada{i}.png", 0.50)
         pregrada_types.append("cloud")
     else:
         pregrada = load_image(f"pregrada{i}.png", 0.2)
