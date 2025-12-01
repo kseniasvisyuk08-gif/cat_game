@@ -59,6 +59,13 @@ for i in range(1, 5): #цикл для загрузки 4 фонов
 current_bg = 0
 bg_x = 0
 
+#music
+# музыка
+music = []
+pygame.mixer.init()
+pygame.mixer.music.load("music1.mp3")
+pygame.mixer.music.play(-1)
+
 
 #Функция для определения цвета текста в зависимости от фона
 def get_text_color():
@@ -88,7 +95,7 @@ class Ball(pygame.sprite.Sprite): #pygame.sprite.Sprite-класс в pygame, к
         super().__init__() #метод, соединяющий pygame.sprite.Sprite
         self.image = pygame.Surface((30, 30), pygame.SRCALPHA) #создаем поле под шар
         # Рисуем шар
-        pygame.draw.circle(self.image, (128, 128, 128), (14, 14), 14)
+        pygame.draw.circle(self.image, (200, 200, 255), (14, 14), 14)
 
         self.rect = self.image.get_rect() #создаем прямоугольное пространство, под мяч
         self.rect.centerx = x #задаем центр мяча
