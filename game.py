@@ -41,6 +41,9 @@ BROWN = (139, 69, 19)
 PURPLE = (128, 0, 128)
 GRAY = (128, 128, 128)
 PINK = (255, 182, 193)
+LIGHT_BLUE = (173, 216, 230)
+LIGHT_GRAY = (200, 200, 200)
+DARK_GRAY = (100, 100, 100)
 
 #Создание окна
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT)) #задаем размеры экрана
@@ -153,6 +156,213 @@ for i in range(2):
     if i % 2 == 0:
         frame = pygame.transform.scale(frame, (int(frame.get_width() * 0.9), int(frame.get_height() * 0.95)))
     cat_run_frames.append(frame)
+
+# Класс для кнопок
+class Button:
+    def __init__(self, x, y, width, height, text, action=None):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.text = text
+        self.action = action
+        self.color = LIGHT_BLUE
+        self.hover_color = (150, 200, 255)
+        self.current_color = self.color
+        self.font = pygame.font.SysFont('arial', 20)
+
+    def draw(self, surface):
+        pygame.draw.rect(surface, self.current_color, self.rect, border_radius=10)
+        pygame.draw.rect(surface, BLACK, self.rect, 2, border_radius=10)
+
+        text_surf = self.font.render(self.text, True, BLACK)
+        text_rect = text_surf.get_rect(center=self.rect.center)
+        surface.blit(text_surf, text_rect)
+
+    def check_hover(self, pos):
+        if self.rect.collidepoint(pos):
+            self.current_color = self.hover_color
+            return True
+        else:
+            self.current_color = self.color
+            return False
+
+    def check_click(self, pos):
+        if self.rect.collidepoint(pos):
+            if self.action:
+                self.action()
+            return True
+        return False
+
+
+# Меню состояния
+class GameMenu:
+    def __init__(self):
+        self.active = False
+        self.show_instructions = False
+        self.show_shop = False
+
+        # Кнопки главного меню
+        center_x = SCREEN_WIDTH // 2
+        self.menu_buttons = [
+            Button(center_x - 150, 200, 300, 60, "Инструкция", self.show_instructions_menu),
+            Button(center_x - 150, 280, 300, 60, "Магазин", self.show_shop_menu),
+            Button(center_x - 150, 360, 300, 60, "Продолжить", self.close_menu)
+        ]
+
+        # Кнопки магазина
+        self.shop_buttons = [
+            Button(50, 500, 150, 50, "Купить шляпу (10)", lambda: self.buy_item("hat", 10)),
+            Button(250, 500, 150, 50, "Купить очки (20)", lambda: self.buy_item("glasses", 20)),
+            Button(450, 500, 150, 50, "Купить бант (15)", lambda: self.buy_item("bow", 15)),
+            Button(650, 500, 150, 50, "Назад", self.close_shop)
+        ]
+
+        # Кнопка назад для инструкций
+        self.back_button = Button(SCREEN_WIDTH // 2 - 75, 500, 150, 50, "Назад", self.close_instructions)
+
+        # Купленные аксессуары
+        self.purchased_items = set()
+        self.coins = 0
+
+    def show_instructions_menu(self):
+        self.show_instructions = True
+        self.show_shop = False
+
+    def show_shop_menu(self):
+        self.show_shop = True
+        self.show_instructions = False
+
+    def close_menu(self):
+        self.active = False
+        self.show_instructions = False
+        self.show_shop = False
+
+    def close_shop(self):
+        self.show_shop = False
+
+    def close_instructions(self):
+        self.show_instructions = False
+
+    def buy_item(self, item, cost):
+        if self.coins >= cost and item not in self.purchased_items:
+            self.purchased_items.add(item)
+            self.coins -= cost
+            print(f"Куплен {item} за {cost} монет")
+
+    def draw(self, surface):
+        if not self.active:
+            return
+
+        # Полупрозрачный фон
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        surface.blit(overlay, (0, 0))
+
+        if self.show_instructions:
+            self.draw_instructions(surface)
+        elif self.show_shop:
+            self.draw_shop(surface)
+        else:
+            self.draw_main_menu(surface)
+
+    def draw_main_menu(self, surface):
+        # Заголовок
+        title_font = pygame.font.SysFont('arial', 48, bold=True)
+        title = title_font.render("МЕНЮ ИГРЫ", True, WHITE)
+        surface.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 100))
+
+        # Кнопки
+        mouse_pos = pygame.mouse.get_pos()
+        for button in self.menu_buttons:
+            button.check_hover(mouse_pos)
+            button.draw(surface)
+
+    def draw_instructions(self, surface):
+        # Заголовок
+        title_font = pygame.font.SysFont('arial', 40, bold=True)
+        title = title_font.render("ИНСТРУКЦИЯ", True, WHITE)
+        surface.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
+
+        # Текст инструкции
+        font = pygame.font.SysFont('arial', 18)
+        instructions = [
+            "",
+            "",
+            "УПРАВЛЕНИЕ:                                                                                                 СОБИРАЙТЕ МОНЕТЫ:",
+            "• ПРОБЕЛ - Высокий прыжок через высокие препятствия                          • Монеты (+10 очков)",
+            "• СТРЕЛКА ВВЕРХ - Низкий прыжок через низкие препятствия                • Рыба (+15 очков)",
+            "• СТРЕЛКА ВНИЗ - Присесть под облаками                                                 • Мясо (+20 очков)",
+            "• СТРЕЛКА ВПРАВО - Выстрелить клубком в мышей                                 • Молоко (+25 очков)",
+            "• ENTER - Открыть/закрыть меню",
+            "• B - Сменить фон",
+            "• P - Пауза/продолжить",
+            "• R - Перезапуск после проигрыша"
+        ]
+
+        y_offset = 100
+        for line in instructions:
+            text = font.render(line, True, WHITE)
+            surface.blit(text, (50, y_offset))
+            y_offset += 30
+
+        # Кнопка назад
+        mouse_pos = pygame.mouse.get_pos()
+        self.back_button.check_hover(mouse_pos)
+        self.back_button.draw(surface)
+
+    def draw_shop(self, surface):
+        # Заголовок
+        title_font = pygame.font.SysFont('arial', 40, bold=True)
+        title = title_font.render("МАГАЗИН АКСЕССУАРОВ", True, WHITE)
+        surface.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
+
+        # Баланс монет
+        font = pygame.font.SysFont('arial', 32)
+        balance_text = font.render(f"Монет: {self.coins}", True, WHITE)
+        surface.blit(balance_text, (SCREEN_WIDTH // 2 - balance_text.get_width() // 2, 100))
+
+        # Список предметов
+        item_font = pygame.font.SysFont('arial', 24)
+        items = [
+            ("Шляпа", "Модная шляпа для кота", "10 монет", "hat"),
+            ("Очки", "Стильные солнцезащитные очки", "20 монет", "glasses"),
+            ("Бант", "Элегантный бант на шею", "15 монет", "bow")
+        ]
+
+        y_offset = 150
+        for name, description, price, item_id in items:
+            # Рамка предмета
+            pygame.draw.rect(surface, LIGHT_GRAY, (100, y_offset, 600, 80), border_radius=10)
+            pygame.draw.rect(surface, DARK_GRAY, (100, y_offset, 600, 80), 2, border_radius=10)
+
+            # Название
+            name_text = item_font.render(name, True, BLACK)
+            surface.blit(name_text, (120, y_offset + 10))
+
+            # Описание
+            desc_font = pygame.font.SysFont('arial', 18)
+            desc_text = desc_font.render(description, True, DARK_GRAY)
+            surface.blit(desc_text, (120, y_offset + 40))
+
+            # Цена
+            price_text = item_font.render(price, True, GRAY if item_id not in self.purchased_items else GREEN)
+            surface.blit(price_text, (600, y_offset + 30))
+
+            # Статус
+            status_font = pygame.font.SysFont('arial', 18)
+            if item_id in self.purchased_items:
+                status_text = status_font.render("Куплено", True, GREEN)
+                surface.blit(status_text, (620, y_offset + 55))
+
+            y_offset += 100
+
+        # Кнопки
+        mouse_pos = pygame.mouse.get_pos()
+        for button in self.shop_buttons:
+            button.check_hover(mouse_pos)
+            button.draw(surface)
+
+
+# Создаем меню
+game_menu = GameMenu()
 
 
 #выстрел
@@ -491,37 +701,68 @@ def get_stats_position():
 running = True
 while running:
     clock.tick(FPS) #скорость выполнения игрового цикла.
+    # Обновляем количество монет в меню
+    game_menu.coins = coins
 
     for event in pygame.event.get(): #прописываем клавиши
         if event.type == pygame.QUIT:
             update_high_score(score)
             save_high_score()
             running = False
+
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_p or event.key == ord('з') :
-                game_paused = not game_paused
-            elif not game_paused and not game_over:
-                if event.key == pygame.K_SPACE:
-                    cat.jump()
-                elif event.key == pygame.K_UP:
-                    cat.low_jump()
-                elif event.key == pygame.K_DOWN:
-                    cat.cloud()
-                elif event.key == pygame.K_RIGHT:
-                    yarn_ball = cat.shoot()
-                    if yarn_ball:
-                        yarn_balls.add(yarn_ball)
-                        all_sprites.add(yarn_ball)
-                elif event.key == pygame.K_b or event.key == ord('и') :
-                    current_bg = (current_bg + 1) % len(backgrounds)
-            elif (event.key == pygame.K_r or event.key == ord('к')) and game_over:
-                reset_game()
+            if event.key == pygame.K_RETURN:  # Enter
+                if not game_over:
+                    game_menu.active = not game_menu.active
+
+            if not game_menu.active:  # Только если меню не активно
+                if event.key == pygame.K_p or event.key == ord('з'):
+                    game_paused = not game_paused
+                elif not game_paused and not game_over:
+                    if event.key == pygame.K_SPACE:
+                        cat.jump()
+                    elif event.key == pygame.K_UP:
+                        cat.low_jump()
+                    elif event.key == pygame.K_DOWN:
+                        cat.cloud()
+                    elif event.key == pygame.K_RIGHT:
+                        yarn_ball = cat.shoot()
+                        if yarn_ball:
+                            yarn_balls.add(yarn_ball)
+                            all_sprites.add(yarn_ball)
+                    elif event.key == pygame.K_b or event.key == ord('и') :
+                        current_bg = (current_bg + 1) % len(backgrounds)
+                elif (event.key == pygame.K_r or event.key == ord('к')) and game_over:
+                    reset_game()
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1 and game_menu.active:  # Левая кнопка мыши
+                mouse_pos = pygame.mouse.get_pos()
+                if game_menu.show_instructions:
+                    game_menu.back_button.check_click(mouse_pos)
+                elif game_menu.show_shop:
+                    for button in game_menu.shop_buttons:
+                        button.check_click(mouse_pos)
+                else:
+                    for button in game_menu.menu_buttons:
+                        button.check_click(mouse_pos)
+
+    # Проверяем наведение мыши на кнопки
+    if game_menu.active:
+        mouse_pos = pygame.mouse.get_pos()
+        if game_menu.show_instructions:
+            game_menu.back_button.check_hover(mouse_pos)
+        elif game_menu.show_shop:
+            for button in game_menu.shop_buttons:
+                button.check_hover(mouse_pos)
+        else:
+            for button in game_menu.menu_buttons:
+                button.check_hover(mouse_pos)
 
     keys = pygame.key.get_pressed() #происходит при зажатии клавиш
     if not keys[pygame.K_DOWN]:
         cat.stand_up()
 
-    if not game_over and not game_paused:
+    if not game_over and not game_paused and not game_menu.active:
         all_sprites.update()
 
         bg_x -= BACKGROUND_SPEED #прокрутка фона
@@ -676,6 +917,8 @@ while running:
         draw_text(f"Убито мышек: {mice_killed}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 100)
         draw_text("Нажми R для перезапуска", WHITE, SCREEN_WIDTH // 2 - 90, SCREEN_HEIGHT // 2 + 140, small_font)
 
+    # Отрисовка меню
+    game_menu.draw(screen)
     pygame.display.flip()
 
 save_high_score(high_score)
