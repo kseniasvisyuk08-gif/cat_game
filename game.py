@@ -756,10 +756,21 @@ title_font = pygame.font.SysFont('arial', 36, bold=True)
 record_font = pygame.font.SysFont('arial', 42, bold=True)
 
 
-#Функция отрисовки текста
-def draw_text(text, color, x, y, font_obj=font):
-    img = font_obj.render(text, True, color) #render() создает изображение с текстом
-    screen.blit(img, (x, y)) #blit() рисует изображение текста на основном экране
+def draw_text(text, color, x, y, font_obj=font, center_x=False, center_y=False):
+    img = font_obj.render(text, True, color)
+    if center_x or center_y:
+        rect = img.get_rect()
+        if center_x:
+            rect.centerx = x
+        else:
+            rect.x = x
+        if center_y:
+            rect.centery = y
+        else:
+            rect.y = y
+        screen.blit(img, rect)
+    else:
+        screen.blit(img, (x, y))
 
 
 #Функция сброса игры
@@ -982,15 +993,21 @@ while running:
     all_sprites.draw(screen)
 
     text_color = get_text_color()
-    stats_x = get_stats_position()
+    stats_x = SCREEN_WIDTH - 180  # Немного левее для лучшего выравнивания
+    stats_start_y = 20
+    stats_spacing = 25
 
     # Отрисовка статистики
-    draw_text(f"Рекорд: {int(high_score)}", text_color, stats_x, 10)
-    draw_text(f"Монеты: {total_coins+current_coins}", text_color, stats_x, 35)
-    draw_text(f"Еда: {food}", text_color, stats_x, 60)
-    draw_text(f"Молоко: {milk}", text_color, stats_x, 85)
-    draw_text(f"Мыши: {mice_killed}", text_color, stats_x, 110)
-    draw_text(f"Счет: {int(score)}", text_color, stats_x, 135)
+    draw_text(f"Рекорд: {int(high_score)}", text_color, stats_x, stats_start_y)
+    draw_text(f"Монеты: {total_coins + current_coins}", text_color, stats_x, stats_start_y + stats_spacing)
+    draw_text(f"Еда: {food}", text_color, stats_x, stats_start_y + stats_spacing * 2)
+    draw_text(f"Молоко: {milk}", text_color, stats_x, stats_start_y + stats_spacing * 3)
+    draw_text(f"Мыши: {mice_killed}", text_color, stats_x, stats_start_y + stats_spacing * 4)
+    draw_text(f"Счет: {int(score)}", text_color, stats_x, stats_start_y + stats_spacing * 5)
+
+    instructions_left_x = 15  # Отступ слева
+    instructions_start_y = 20
+    instructions_spacing = 22  # Интервал между
 
     #Отрисовка инструкций
     instructions = [
@@ -1004,8 +1021,12 @@ while running:
         "R - Перезапуск"
     ]
 
-    for i, instruction in enumerate(instructions):
-        draw_text(instruction, text_color, 10, 10 + i * 20, small_font)
+    # Рисуем инструкции с учетом пустых строк
+    current_y = instructions_start_y
+    for instruction in instructions:
+        if instruction:  # Если строка не пустая
+            draw_text(instruction, text_color, instructions_left_x, current_y, small_font)
+        current_y += instructions_spacing
 
     #Экран паузы
     if game_paused and not game_over:
@@ -1024,29 +1045,43 @@ while running:
         overlay.fill(BLACK)
         screen.blit(overlay, (0, 0))
 
+        # Центральные координаты для всего экрана Game Over
+        center_x = SCREEN_WIDTH // 2
+        game_over_start_y = 120  # Начинаем выше
+
         # Отображение нового рекорда, если он достигнут
         if new_record_achieved:
-            # Рисуем золотую рамку для нового рекорда
-            pygame.draw.rect(screen, GOLD, (SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 70, 400, 60), 4,
+            # Золотая рамка для нового рекорда
+            pygame.draw.rect(screen, GOLD, (center_x - 220, game_over_start_y - 20, 440, 70), 4, border_radius=12)
+            pygame.draw.rect(screen, (30, 30, 30, 220), (center_x - 216, game_over_start_y - 16, 432, 62),
                              border_radius=10)
-            pygame.draw.rect(screen, (30, 30, 30, 200), (SCREEN_WIDTH // 2 - 196, SCREEN_HEIGHT // 2 - 66, 392, 52),
-                             border_radius=8)
 
             # Текст нового рекорда
-            draw_text("НОВЫЙ РЕКОРД!", GOLD, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 62, record_font, center=True)
-            # Смещаем остальную статистику ниже
-            stat_y_offset = 25
+            draw_text("НОВЫЙ РЕКОРД!", GOLD, center_x, game_over_start_y + 15, record_font, center_x=True,
+                      center_y=True)
+            game_over_start_y += 90  # Сдвигаем остальное содержимое ниже
         else:
-            stat_y_offset = 0
+            game_over_start_y += 20
 
-        draw_text("GAME OVER", RED, SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 80, title_font)
-        draw_text(f"Финальный счет: {int(score)}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 - 20)
-        draw_text(f"Собрано монет: {total_coins+current_coins}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 10)
-        draw_text(f"Собрано еды: {food}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 40)
-        draw_text(f"Собрано молока: {milk}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 70)
-        draw_text(f"Убито мышек: {mice_killed}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 100)
-        draw_text("Нажми R для перезапуска", WHITE, SCREEN_WIDTH // 2 - 90, SCREEN_HEIGHT // 2 + 140, small_font)
+        draw_text("GAME OVER", RED, center_x, game_over_start_y, title_font, center_x=True, center_y=True)
+        # Статистика Game Over - центрированная колонка
+        stats_start_y = game_over_start_y + 60
+        stat_spacing = 35
 
+        stats_items = [
+            f"Финальный счет: {int(score)}",
+            f"Собрано монет: {total_coins + current_coins}",
+            f"Собрано еды: {food}",
+            f"Собрано молока: {milk}",
+            f"Убито мышек: {mice_killed}"
+        ]
+
+        for i, stat in enumerate(stats_items):
+            draw_text(stat, WHITE, center_x, stats_start_y + i * stat_spacing, font, center_x=True, center_y=True)
+
+        # Инструкция для перезапуска
+        restart_y = stats_start_y + len(stats_items) * stat_spacing + 30
+        draw_text("Нажми R для перезапуска", WHITE, center_x, restart_y, small_font, center_x=True, center_y=True)
     # Отрисовка меню
     game_menu.draw(screen)
     pygame.display.flip()
