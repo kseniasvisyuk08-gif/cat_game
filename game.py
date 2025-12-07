@@ -28,6 +28,7 @@ BALL_SPEED = 10
 global_high_score = 0
 global_money_score = 0
 score_updated = False  # Флаг, что рекорд обновлен и нужно сохранить
+new_record_achieved = False  # Флаг, что достигнут новый рекорд
 money_updated = False
 HIGH_SCORE_FILE = "high_score.json"
 MONEY_SCORE_FILE= "money_score.json"
@@ -48,6 +49,7 @@ PINK = (255, 182, 193)
 LIGHT_BLUE = (173, 216, 230)
 LIGHT_GRAY = (200, 200, 200)
 DARK_GRAY = (100, 100, 100)
+GOLD = (255, 215, 0)
 
 #Создание окна
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT)) #задаем размеры экрана
@@ -130,11 +132,12 @@ def save_money_score():
 
 def update_high_score(new_score):
     """Обновление рекорда"""
-    global global_high_score, score_updated
+    global global_high_score, score_updated, new_record_achieved
 
     if new_score > global_high_score:
         global_high_score = int(new_score)
         score_updated = True
+        new_record_achieved = True
         save_high_score()
 
     return global_high_score
@@ -188,6 +191,8 @@ def get_text_color():
     else:
         return BLACK
 
+#переменная для выбранного аксесуара(0-нет ничего, 1-шляпа,2-очки,3-бант)
+selected_accessory_type = 0
 
 #Загрузка спрайтов кота
 cat_stand = load_image("cat1.png", 1.6)
@@ -243,6 +248,8 @@ class GameMenu:
         self.active = False
         self.show_instructions = False
         self.show_shop = False
+        self.show_search = False
+        self.show_selection = False
 
         # Кнопки главного меню
         center_x = SCREEN_WIDTH // 2
@@ -259,6 +266,15 @@ class GameMenu:
             Button(450, 500, 150, 50, "Купить бант (15)", lambda: self.buy_item("bow", 15)),
             Button(650, 500, 150, 50, "Назад", self.close_shop)
         ]
+
+        #Кнопки выбора акссесуара
+        self.selection_buttons = [
+            Button(100, 200, 200, 60, "Шляпа", lambda: self.select_accessory(1)),
+            Button(350, 200, 200, 60, "Очки", lambda: self.select_accessory(2)),
+            Button(600, 200, 200, 60, "Бант", lambda: self.select_accessory(3)),
+            Button(SCREEN_WIDTH // 2 - 75, 300, 150, 50, "Назад", self.close_selection)
+        ]
+
 
         # Кнопка назад для инструкций
         self.back_button = Button(SCREEN_WIDTH // 2 - 75, 500, 150, 50, "Назад", self.close_instructions)
@@ -286,11 +302,34 @@ class GameMenu:
     def close_instructions(self):
         self.show_instructions = False
 
+    def  close_selection(self):
+        self.show_selection = False
+        self.show_shop = True
+
     def buy_item(self, item, cost):
         if self.coins >= cost and item not in self.purchased_items:
-            self.purchased_items.add(item)
             self.coins -= cost
+            self.purchased_items.add(item)
             print(f"Куплен {item} за {cost} монет")
+
+            global total_coins, current_coins
+            total_coins=self.coins - current_coins
+            update_money_score(self.coins)
+
+            if len(self.purchased_items) > 1:
+                self.show_selection = True
+                self.show_shop = False
+        else:
+            if item in self.purchased_items:
+                print(f"{item} уже куплен!")
+            else:
+                print(f"Нежлстаточно монет! Нужно {cost}, есть {self.coins}")
+
+    def select_accessory(self,accessory_type):
+        global selected_accessory_type
+        selected_accessory_type = accessory_type
+        print(f"Выбран акссесура:{accessory_type}")
+        self.close_selection()
 
     def draw(self, surface):
         if not self.active:
@@ -305,6 +344,8 @@ class GameMenu:
             self.draw_instructions(surface)
         elif self.show_shop:
             self.draw_shop(surface)
+        elif self.show_selection:
+            self.draw_selection(surface)
         else:
             self.draw_main_menu(surface)
 
@@ -405,6 +446,19 @@ class GameMenu:
             button.check_hover(mouse_pos)
             button.draw(surface)
 
+    def draw_selection(self,surface):
+        title_font=pygame.font.SysFont('arial', 40, bold=True)
+        title = title_font.render("выберите акссесуар", True, WHITE)
+        surface.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
+
+        instruction_font = pygame.font.SysFont('arial', 24)
+        instruction = instruction_font.render("Какой аксессуар надеть?", True, WHITE)
+        surface.blit(instruction, (SCREEN_WIDTH // 2 - instruction.get_width() // 2, 120))
+
+        mouse_pos = pygame.mouse.get_pos()
+        for button in self.selection_buttons:
+            button.check_hover(mouse_pos)
+            button.draw(surface)
 
 # Создаем меню
 game_menu = GameMenu()
@@ -699,6 +753,7 @@ next_mouse_spawn = random.randint(180, 360)#время появления мыш
 font = pygame.font.SysFont('arial', 20)#шрифты
 small_font = pygame.font.SysFont('arial', 16)
 title_font = pygame.font.SysFont('arial', 36, bold=True)
+record_font = pygame.font.SysFont('arial', 42, bold=True)
 
 
 #Функция отрисовки текста
@@ -709,7 +764,7 @@ def draw_text(text, color, x, y, font_obj=font):
 
 #Функция сброса игры
 def reset_game():
-    global score, current_coins, food, milk, mice_killed, game_over, game_paused, spawn_timer, item_timer, mouse_timer, next_mouse_spawn
+    global score, current_coins, food, milk, mice_killed, game_over, game_paused, spawn_timer, item_timer, mouse_timer, next_mouse_spawn, new_record_achieved
     for sprite in all_sprites:
         if sprite != cat:
             sprite.kill()
@@ -725,6 +780,7 @@ def reset_game():
     item_timer = 0
     mouse_timer = 0
     next_mouse_spawn = random.randint(180, 360)
+    new_record_achieved = False
 
     cat.rect.center = (100, SCREEN_HEIGHT - 100)
     cat.velocity_y = 0
@@ -761,6 +817,15 @@ while running:
             if event.key == pygame.K_RETURN:  # Enter
                 if not game_over:
                     game_menu.active = not game_menu.active
+                    if game_menu.active:
+                        game_paused = True
+                    else:
+                        # Если закрываем меню, сбрасываем все подменю
+                        game_menu.show_instructions = False
+                        game_menu.show_shop = False
+                        game_menu.show_selection = False
+                        # Возвращаемся в игру (убираем паузу)
+                        game_paused = False
 
             if not game_menu.active:  # Только если меню не активно
                 if event.key == pygame.K_p or event.key == ord('з'):
@@ -958,6 +1023,21 @@ while running:
         overlay.set_alpha(180)
         overlay.fill(BLACK)
         screen.blit(overlay, (0, 0))
+
+        # Отображение нового рекорда, если он достигнут
+        if new_record_achieved:
+            # Рисуем золотую рамку для нового рекорда
+            pygame.draw.rect(screen, GOLD, (SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 70, 400, 60), 4,
+                             border_radius=10)
+            pygame.draw.rect(screen, (30, 30, 30, 200), (SCREEN_WIDTH // 2 - 196, SCREEN_HEIGHT // 2 - 66, 392, 52),
+                             border_radius=8)
+
+            # Текст нового рекорда
+            draw_text("НОВЫЙ РЕКОРД!", GOLD, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 62, record_font, center=True)
+            # Смещаем остальную статистику ниже
+            stat_y_offset = 25
+        else:
+            stat_y_offset = 0
 
         draw_text("GAME OVER", RED, SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 80, title_font)
         draw_text(f"Финальный счет: {int(score)}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 - 20)
