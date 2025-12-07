@@ -26,8 +26,12 @@ BALL_SPEED = 10
 
 # Глобальная переменная для рекорда
 global_high_score = 0
+global_money_score = 0
 score_updated = False  # Флаг, что рекорд обновлен и нужно сохранить
+money_updated = False
 HIGH_SCORE_FILE = "high_score.json"
+MONEY_SCORE_FILE= "money_score.json"
+
 
 # Цвета
 WHITE = (255, 255, 255)
@@ -77,6 +81,26 @@ def load_high_score():
     global_high_score = 0
     return 0
 
+def load_money_score():
+    global global_money_score
+    if not os.path.exists(MONEY_SCORE_FILE):
+        global_money_score = 0
+        return 0
+    file = open(MONEY_SCORE_FILE, 'r', encoding='utf-8')
+    content = file.read()
+    file.close()
+
+    if not content.strip():
+        global_money_score = 0
+        return 0
+    data=json.loads(content)
+
+    if isinstance(data, dict) and "money_score" in data:
+        global_money_score = data["money_score"]
+        return global_money_score
+
+    global_money_score =0
+    return 0
 
 def save_high_score():
     """Сохранение рекорда в JSON файл"""
@@ -92,6 +116,17 @@ def save_high_score():
 
     score_updated = False
 
+def save_money_score():
+    global global_money_score, money_updated
+
+    if not money_updated:
+        return
+    data={"money_score": int(global_money_score)}
+    file= open(MONEY_SCORE_FILE, 'w', encoding='utf-8')
+    json.dump(data, file, ensure_ascii=False, indent=4)
+    file.close()
+
+    money_updated = False
 
 def update_high_score(new_score):
     """Обновление рекорда"""
@@ -104,8 +139,18 @@ def update_high_score(new_score):
 
     return global_high_score
 
+def update_money_score(new_money_score):
+    global global_money_score, money_updated
+
+    global_money_score = int(new_money_score)
+    money_updated=True
+    save_money_score()
+
+    return global_money_score
+
 # Регистрируем функцию сохранения при выходе из программы
 atexit.register(save_high_score)
+atexit.register(save_money_score)
 
 #Загрузка изображения name
 def load_image(name, scale=1):
@@ -639,7 +684,8 @@ all_sprites.add(cat)
 
 # Переменные игры
 score = 0
-coins = 0
+current_coins = 0
+total_coins = load_money_score()
 food = 0
 milk = 0
 mice_killed = 0
@@ -663,14 +709,13 @@ def draw_text(text, color, x, y, font_obj=font):
 
 #Функция сброса игры
 def reset_game():
-    global score, coins, food, milk, mice_killed, game_over, game_paused, spawn_timer, item_timer, mouse_timer, next_mouse_spawn
-    #выводятся очки при окончании игры
+    global score, current_coins, food, milk, mice_killed, game_over, game_paused, spawn_timer, item_timer, mouse_timer, next_mouse_spawn
     for sprite in all_sprites:
         if sprite != cat:
             sprite.kill()
 
     score = 0
-    coins = 0
+    current_coins = 0
     food = 0
     milk = 0
     mice_killed = 0
@@ -702,12 +747,14 @@ running = True
 while running:
     clock.tick(FPS) #скорость выполнения игрового цикла.
     # Обновляем количество монет в меню
-    game_menu.coins = coins
+    game_menu.coins = total_coins + current_coins
 
     for event in pygame.event.get(): #прописываем клавиши
         if event.type == pygame.QUIT:
             update_high_score(score)
             save_high_score()
+            update_money_score(total_coins + current_coins)
+            save_money_score()
             running = False
 
         elif event.type == pygame.KEYDOWN:
@@ -837,8 +884,9 @@ while running:
         collected = pygame.sprite.spritecollide(cat, items, True)
         for item in collected:
             if item.type == "coin":
-                coins += 1
+                current_coins += 1
                 score += 10
+                update_money_score(total_coins+current_coins)
             elif item.type == "fish":
                 food += 1
                 score += 15
@@ -854,6 +902,8 @@ while running:
         if score > high_score:
             high_score = score
         update_high_score(score)
+
+        update_money_score(total_coins+current_coins)
 
     #Рисуем фоны
     screen.blit(backgrounds[current_bg], (bg_x, 0))
@@ -871,7 +921,7 @@ while running:
 
     # Отрисовка статистики
     draw_text(f"Рекорд: {int(high_score)}", text_color, stats_x, 10)
-    draw_text(f"Монеты: {coins}", text_color, stats_x, 35)
+    draw_text(f"Монеты: {total_coins+current_coins}", text_color, stats_x, 35)
     draw_text(f"Еда: {food}", text_color, stats_x, 60)
     draw_text(f"Молоко: {milk}", text_color, stats_x, 85)
     draw_text(f"Мыши: {mice_killed}", text_color, stats_x, 110)
@@ -911,7 +961,7 @@ while running:
 
         draw_text("GAME OVER", RED, SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 80, title_font)
         draw_text(f"Финальный счет: {int(score)}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 - 20)
-        draw_text(f"Собрано монет: {coins}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 10)
+        draw_text(f"Собрано монет: {total_coins+current_coins}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 10)
         draw_text(f"Собрано еды: {food}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 40)
         draw_text(f"Собрано молока: {milk}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 70)
         draw_text(f"Убито мышек: {mice_killed}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 100)
@@ -922,5 +972,6 @@ while running:
     pygame.display.flip()
 
 save_high_score(high_score)
+save_money_score(total_coins+current_coins)
 pygame.quit()
 sys.exit()
