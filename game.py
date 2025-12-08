@@ -251,6 +251,12 @@ class GameMenu:
         self.show_search = False
         self.show_selection = False
 
+        button_width = 180
+        button_height = 60
+        button_margin = 20
+        total_width = (button_width * 3) + (button_margin * 2)
+        start_x = (SCREEN_WIDTH - total_width) // 2
+
         # Кнопки главного меню
         center_x = SCREEN_WIDTH // 2
         self.menu_buttons = [
@@ -269,10 +275,16 @@ class GameMenu:
 
         #Кнопки выбора акссесуара
         self.selection_buttons = [
-            Button(100, 200, 200, 60, "Шляпа", lambda: self.select_accessory(1)),
-            Button(350, 200, 200, 60, "Очки", lambda: self.select_accessory(2)),
-            Button(600, 200, 200, 60, "Бант", lambda: self.select_accessory(3)),
-            Button(SCREEN_WIDTH // 2 - 75, 300, 150, 50, "Назад", self.close_selection)
+            Button(start_x, 200, button_width, button_height,
+                   "Шляпа", lambda: self.select_accessory(1)),
+            Button(start_x + button_width + button_margin, 200,
+                   button_width, button_height, "Очки",
+                   lambda: self.select_accessory(2)),
+            Button(start_x + (button_width + button_margin) * 2, 200,
+                   button_width, button_height, "Бант",
+                   lambda: self.select_accessory(3)),
+            Button(SCREEN_WIDTH // 2 - 75, 300, 150, 50,
+                   "Назад", self.close_selection)
         ]
 
 
@@ -447,18 +459,43 @@ class GameMenu:
             button.draw(surface)
 
     def draw_selection(self,surface):
-        title_font=pygame.font.SysFont('arial', 40, bold=True)
-        title = title_font.render("выберите акссесуар", True, WHITE)
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        surface.blit(overlay, (0, 0))
+
+        # Заголовок
+        title_font = pygame.font.SysFont('arial', 40, bold=True)
+        title = title_font.render("ВЫБЕРИТЕ АКСЕССУАР", True, WHITE)
         surface.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
 
-        instruction_font = pygame.font.SysFont('arial', 24)
-        instruction = instruction_font.render("Какой аксессуар надеть?", True, WHITE)
-        surface.blit(instruction, (SCREEN_WIDTH // 2 - instruction.get_width() // 2, 120))
+        # Подзаголовок
+        subtitle_font = pygame.font.SysFont('arial', 24)
+        subtitle = subtitle_font.render("Какой аксессуар надеть?", True, WHITE)
+        surface.blit(subtitle, (SCREEN_WIDTH // 2 - subtitle.get_width() // 2, 120))
 
+        # Рисуем ровные кнопки
         mouse_pos = pygame.mouse.get_pos()
-        for button in self.selection_buttons:
+
+        # Рисуем кнопки выбора (первые 3)
+        for i in range(3):
+            button = self.selection_buttons[i]
             button.check_hover(mouse_pos)
             button.draw(surface)
+
+            # Кнопка "Назад" (последняя кнопка)
+            back_button = self.selection_buttons[3]
+            back_button.check_hover(mouse_pos)
+            back_button.draw(surface)
+
+            # Информация о текущем выборе
+            if selected_accessory_type > 0:
+                info_font = pygame.font.SysFont('arial', 18)
+                accessory_names = ["", "Шляпа", "Очки", "Бант"]
+                info_text = info_font.render(
+                    f"Текущий выбор: {accessory_names[selected_accessory_type]}",
+                    True, GREEN
+                )
+                surface.blit(info_text, (SCREEN_WIDTH // 2 - info_text.get_width() // 2, 380))
 
 # Создаем меню
 game_menu = GameMenu()
