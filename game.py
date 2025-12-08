@@ -60,7 +60,6 @@ clock = pygame.time.Clock()
 
 # Функции для работы с рекордом
 def load_high_score():
-    """Загрузка рекорда из JSON файла"""
     global global_high_score
 
     if not os.path.exists(HIGH_SCORE_FILE):
@@ -106,7 +105,6 @@ def load_money_score():
     return 0
 
 def save_high_score():
-    """Сохранение рекорда в JSON файл"""
     global global_high_score, score_updated
 
     if not score_updated:
@@ -132,7 +130,6 @@ def save_money_score():
     money_updated = False
 
 def update_high_score(new_score):
-    """Обновление рекорда"""
     global global_high_score, score_updated, new_record_achieved
 
     if new_score > global_high_score:
@@ -262,17 +259,26 @@ def get_text_color():
 selected_accessory_type = 0
 
 #Загрузка спрайтов кота
-cat_stand = load_image("cat1.png", 1.6)
-cat_jump = load_image("cat2.png", 1.6)
-cat_cloud = load_image("cat3.png", 1.2)
+cat_stand0 = load_image("cat1.png", 1.6)
+cat_jump0 = load_image("cat2.png", 1.6)
+cat_cloud0 = load_image("cat3.png", 1.2)
 
-#меняем размеры кота, чтобы создавалась иллюзия движения
-cat_run_frames = []
-for i in range(2):
-    frame = cat_stand.copy()
-    if i % 2 == 0:
-        frame = pygame.transform.scale(frame, (int(frame.get_width() * 0.9), int(frame.get_height() * 0.95)))
-    cat_run_frames.append(frame)
+cat_stand1 = load_image("cathat1.png", 1.6)
+cat_jump1 = load_image("cathat2.png", 1.6)
+cat_cloud1 = load_image("cathat3.png", 1.2)
+
+cat_stand2 = load_image("catglasses1.png", 1.6)
+cat_jump2 = load_image("catglasses2.png", 1.6)
+cat_cloud2 = load_image("catglasses3.png", 1.2)
+
+cat_stand3 = load_image("catbow1.png", 1.6)
+cat_jump3 = load_image("catbow2.png", 1.6)
+cat_cloud3 = load_image("catbow3.png", 1.2)
+
+cat_stand=[cat_stand0,cat_stand1,cat_stand2,cat_stand3]
+cat_jump=[cat_jump0,cat_jump1,cat_jump2,cat_jump3]
+cat_cloud=[cat_cloud0,cat_cloud1,cat_cloud2,cat_cloud3]
+
 
 # Класс для кнопок
 class Button:
@@ -365,10 +371,6 @@ class GameMenu:
         # Кнопка назад для инструкций
         self.back_button = Button(SCREEN_WIDTH // 2 - 75, 500, 150, 50, "Назад", self.close_instructions)
 
-        # Купленные аксессуары
-        self.purchased_items = set()
-        self.coins = 0
-
     def save_shop_state(self):
         shop_data = {
             "purchased_items": list(self.purchased_items),
@@ -412,19 +414,22 @@ class GameMenu:
 
             self.save_shop_state()
 
-            if len(self.purchased_items) > 1:
+            if len(self.purchased_items) > 0:
                 self.show_selection = True
                 self.show_shop = False
         else:
             if item in self.purchased_items:
                 print(f"{item} уже куплен!")
             else:
-                print(f"Нежлстаточно монет! Нужно {cost}, есть {self.coins}")
+                print(f"Недостаточно монет! Нужно {cost}, есть {self.coins}")
 
-    def select_accessory(self,accessory_type):
-        global selected_accessory_type
+    def select_accessory(self, accessory_type):
+        global selected_accessory_type, cat
         selected_accessory_type = accessory_type
-        print(f"Выбран акссесура:{accessory_type}")
+        print(f"Выбран аксессуар: {accessory_type}")
+
+        cat.update_sprites()
+
         self.save_shop_state()
         self.close_selection()
 
@@ -569,16 +574,15 @@ class GameMenu:
             available_items.append(("Очки", 2))
         if "bow" in self.purchased_items:
             available_items.append(("Бант", 3))
-
+        
         # Кнопка "Снять аксессуар"
         if selected_accessory_type > 0:
-            remove_button = Button(SCREEN_WIDTH // 2 - 100, 300, 200, 50, "Снять аксессуар",
-                                   lambda: self.select_accessory(0))
-            mouse_pos = pygame.mouse.get_pos()
-            remove_button.check_hover(mouse_pos)
-            remove_button.draw(surface)
+            self.remove_accessory_button = Button(SCREEN_WIDTH // 2 - 100, 300, 200, 50, "Снять аксессуар",
+                                                  lambda: self.select_accessory(0))
+            self.remove_accessory_button.check_hover(mouse_pos)
+            self.remove_accessory_button.draw(surface)
 
-        mouse_pos = pygame.mouse.get_pos()
+
         for i, (name, accessory_id) in enumerate(available_items):
             x_pos = 100 + i * 250
             button = Button(x_pos, 200, 200, 60, name, lambda acc_id=accessory_id: self.select_accessory(acc_id))
@@ -588,11 +592,9 @@ class GameMenu:
             # Подсветка выбранного аксессуара
             if selected_accessory_type == accessory_id:
                 pygame.draw.rect(surface, YELLOW, (x_pos - 2, 198, 204, 64), 3, border_radius=10)
-
-        # Кнопка назад
-        back_button = Button(SCREEN_WIDTH // 2 - 75, 380, 150, 50, "Назад", self.close_selection)
-        back_button.check_hover(mouse_pos)
-        back_button.draw(surface)
+        self.back_selection_button = Button(SCREEN_WIDTH // 2 - 75, 380, 150, 50, "Назад", self.close_selection)
+        self.back_selection_button.check_hover(mouse_pos)
+        self.back_selection_button.draw(surface)
 
 # Создаем меню
 game_menu = GameMenu()
@@ -678,16 +680,8 @@ for i in range(1, 4):
 class Cat(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        #задаем спрайты  на все состояния кота
-        self.run_frames_right = cat_run_frames
-        self.jump_frame_right = cat_jump
-        self.stand_frame_right = cat_stand
-        self.cloud_frame_right = cat_cloud
 
         self.current_frame = 0
-        self.image = self.run_frames_right[self.current_frame] #отображение текущнго спрайта через массив спрайтов
-        self.rect = self.image.get_rect()
-        self.rect.center = (100, SCREEN_HEIGHT - 100)
         self.velocity_y = 0
         self.is_jumping = False
         self.is_clouding = False
@@ -696,11 +690,36 @@ class Cat(pygame.sprite.Sprite):
         self.animation_counter = 0
         self.can_shoot = True
         self.shoot_cooldown = 0
-        # Запоминаем уровень земли кота
         self.ground_level = SCREEN_HEIGHT - 50
-        # Фиксированная высота для мышей - НИЖЕ центра кота
-        self.mouse_spawn_height = SCREEN_HEIGHT - 57  # Мыши появляются ближе к земле
+        self.mouse_spawn_height = SCREEN_HEIGHT - 57
 
+        self.update_sprites()
+
+        self.rect = self.image.get_rect()
+        self.rect.center = (100, SCREEN_HEIGHT - 100)
+
+    def update_sprites(self):
+        global selected_accessory_type
+        self.stand_frame_right = cat_stand[selected_accessory_type]
+        self.jump_frame_right = cat_jump[selected_accessory_type]
+        self.cloud_frame_right = cat_cloud[selected_accessory_type]
+        self.run_frames_right = []
+        for i in range(2):
+            frame = self.stand_frame_right.copy()
+            if i % 2 == 0:
+                frame = pygame.transform.scale(frame,(int(frame.get_width() * 0.9), int(frame.get_height() * 0.95)))
+            self.run_frames_right.append(frame)
+
+        if hasattr(self, 'image'):
+            if self.is_jumping:
+                self.image = self.jump_frame_right
+            elif self.is_clouding:
+                self.image = self.cloud_frame_right
+            else:
+                frame_index = self.current_frame % len(self.run_frames_right)
+                self.image = self.run_frames_right[frame_index]
+        else:
+            self.image = self.run_frames_right[0]
     def update(self):
         # Гравитация
         self.velocity_y += GRAVITY
@@ -869,6 +888,7 @@ yarn_balls = pygame.sprite.Group()
 #Создание кота
 cat = Cat()
 all_sprites.add(cat)
+cat.update_sprites()
 
 # Переменные игры
 score = 0
@@ -994,16 +1014,49 @@ while running:
                 elif (event.key == pygame.K_r or event.key == ord('к')) and game_over:
                     reset_game()
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1 and game_menu.active:  # Левая кнопка мыши
+            if event.button == 1:  # Левая кнопка мыши
                 mouse_pos = pygame.mouse.get_pos()
-                if game_menu.show_instructions:
-                    game_menu.back_button.check_click(mouse_pos)
-                elif game_menu.show_shop:
-                    for button in game_menu.shop_buttons:
-                        button.check_click(mouse_pos)
-                else:
-                    for button in game_menu.menu_buttons:
-                        button.check_click(mouse_pos)
+
+                if game_menu.active:
+                    if game_menu.show_instructions:
+                        game_menu.back_button.check_click(mouse_pos)
+                    elif game_menu.show_shop:
+                        for button in game_menu.shop_buttons:
+                            button.check_click(mouse_pos)
+                    elif game_menu.show_selection:
+                        # Обработка кнопок в меню выбора аксессуара
+                        available_items = []
+                        if "hat" in game_menu.purchased_items:
+                            available_items.append(("Шляпа", 1))
+                        if "glasses" in game_menu.purchased_items:
+                            available_items.append(("Очки", 2))
+                        if "bow" in game_menu.purchased_items:
+                            available_items.append(("Бант", 3))
+
+                        # Кнопка "Снять аксессуар"
+                        if selected_accessory_type > 0:
+                            remove_button = Button(SCREEN_WIDTH // 2 - 100, 300, 200, 50, "Снять аксессуар",
+                                                   lambda: game_menu.select_accessory(0))
+                            if remove_button.rect.collidepoint(mouse_pos):
+                                game_menu.select_accessory(0)
+
+                        # Кнопки доступных аксессуаров
+                        for i, (name, accessory_id) in enumerate(available_items):
+                            x_pos = 100 + i * 250
+                            button = Button(x_pos, 200, 200, 60, name,
+                                            lambda acc_id=accessory_id: game_menu.select_accessory(acc_id))
+                            if button.rect.collidepoint(mouse_pos):
+                                game_menu.select_accessory(accessory_id)
+
+                        # Кнопка назад
+                        back_button = Button(SCREEN_WIDTH // 2 - 75, 380, 150, 50, "Назад",
+                                             game_menu.close_selection)
+                        if back_button.rect.collidepoint(mouse_pos):
+                            game_menu.close_selection()
+
+                    else:  # Главное меню
+                        for button in game_menu.menu_buttons:
+                            button.check_click(mouse_pos)
 
     # Проверяем наведение мыши на кнопки
     if game_menu.active:
@@ -1013,6 +1066,14 @@ while running:
         elif game_menu.show_shop:
             for button in game_menu.shop_buttons:
                 button.check_hover(mouse_pos)
+        elif game_menu.show_selection:
+            if hasattr(game_menu, 'remove_button') and selected_accessory_type > 0:
+                game_menu.remove_button.check_hover(mouse_pos)
+            if hasattr(game_menu, 'back_selection_button'):
+                game_menu.back_selection_button.check_hover(mouse_pos)
+            if hasattr(game_menu, 'current_selection_buttons'):
+                for button in game_menu.current_selection_buttons:
+                    button.check_hover(mouse_pos)
         else:
             for button in game_menu.menu_buttons:
                 button.check_hover(mouse_pos)
