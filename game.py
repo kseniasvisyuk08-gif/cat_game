@@ -32,6 +32,7 @@ new_record_achieved = False  # Флаг, что достигнут новый р
 money_updated = False
 HIGH_SCORE_FILE = "high_score.json"
 MONEY_SCORE_FILE= "money_score.json"
+SHOP_DATA_FILE = "shop.json"
 
 
 # Цвета
@@ -151,6 +152,72 @@ def update_money_score(new_money_score):
 
     return global_money_score
 
+
+def load_shop_data():
+    if not os.path.exists(SHOP_DATA_FILE):
+        initial_data = {
+            "purchased_items": [],
+            "coins": 0,
+            "selected_accessory": 0
+        }
+        save_shop_data(initial_data)
+        return initial_data
+
+    file = open(SHOP_DATA_FILE, 'r', encoding='utf-8')
+    content = file.read()
+    file.close()
+
+    if not content.strip():
+        data = {
+            "purchased_items": [],
+            "coins": 0,
+            "selected_accessory": 0
+        }
+        return data
+
+    data = json.loads(content)
+
+    if not isinstance(data, dict):
+        data = {
+            "purchased_items": [],
+            "coins": 0,
+            "selected_accessory": 0
+        }
+    else:
+        if "purchased_items" not in data:
+            data["purchased_items"] = []
+        if "coins" not in data:
+            data["coins"] = 0
+        if "selected_accessory" not in data:
+            data["selected_accessory"] = 0
+
+    return data
+
+
+def save_shop_data(data):
+    file = open(SHOP_DATA_FILE, 'w', encoding='utf-8')
+    json.dump(data, file, ensure_ascii=False, indent=4)
+    file.close()
+    return True
+
+
+def save_game_state():
+    # Сохраняем данные магазина из меню
+    shop_data = {
+        "purchased_items": list(game_menu.purchased_items),
+        "coins": game_menu.coins,
+        "selected_accessory": selected_accessory_type
+    }
+    save_shop_data(shop_data)
+
+    # Сохраняем рекорды
+    save_high_score()
+    save_money_score()
+
+
+# Регистрируем общую функцию сохранения
+atexit.register(save_game_state)
+
 # Регистрируем функцию сохранения при выходе из программы
 atexit.register(save_high_score)
 atexit.register(save_money_score)
@@ -257,6 +324,13 @@ class GameMenu:
         total_width = (button_width * 3) + (button_margin * 2)
         start_x = (SCREEN_WIDTH - total_width) // 2
 
+        shop_data = load_shop_data()
+        self.purchased_items = set(shop_data["purchased_items"])
+        self.coins = shop_data["coins"]
+
+        global selected_accessory_type
+        selected_accessory_type = shop_data.get("selected_accessory", 0)
+
         # Кнопки главного меню
         center_x = SCREEN_WIDTH // 2
         self.menu_buttons = [
@@ -295,6 +369,14 @@ class GameMenu:
         self.purchased_items = set()
         self.coins = 0
 
+    def save_shop_state(self):
+        shop_data = {
+            "purchased_items": list(self.purchased_items),
+            "coins": self.coins,
+            "selected_accessory": selected_accessory_type
+        }
+        save_shop_data(shop_data)
+
     def show_instructions_menu(self):
         self.show_instructions = True
         self.show_shop = False
@@ -328,6 +410,8 @@ class GameMenu:
             total_coins=self.coins - current_coins
             update_money_score(self.coins)
 
+            self.save_shop_state()
+
             if len(self.purchased_items) > 1:
                 self.show_selection = True
                 self.show_shop = False
@@ -341,6 +425,7 @@ class GameMenu:
         global selected_accessory_type
         selected_accessory_type = accessory_type
         print(f"Выбран акссесура:{accessory_type}")
+        self.save_shop_state()
         self.close_selection()
 
     def draw(self, surface):
@@ -476,26 +561,38 @@ class GameMenu:
         # Рисуем ровные кнопки
         mouse_pos = pygame.mouse.get_pos()
 
-        # Рисуем кнопки выбора (первые 3)
-        for i in range(3):
-            button = self.selection_buttons[i]
+        # Отображение доступных аксессуаров
+        available_items = []
+        if "hat" in self.purchased_items:
+            available_items.append(("Шляпа", 1))
+        if "glasses" in self.purchased_items:
+            available_items.append(("Очки", 2))
+        if "bow" in self.purchased_items:
+            available_items.append(("Бант", 3))
+
+        # Кнопка "Снять аксессуар"
+        if selected_accessory_type > 0:
+            remove_button = Button(SCREEN_WIDTH // 2 - 100, 300, 200, 50, "Снять аксессуар",
+                                   lambda: self.select_accessory(0))
+            mouse_pos = pygame.mouse.get_pos()
+            remove_button.check_hover(mouse_pos)
+            remove_button.draw(surface)
+
+        mouse_pos = pygame.mouse.get_pos()
+        for i, (name, accessory_id) in enumerate(available_items):
+            x_pos = 100 + i * 250
+            button = Button(x_pos, 200, 200, 60, name, lambda acc_id=accessory_id: self.select_accessory(acc_id))
             button.check_hover(mouse_pos)
             button.draw(surface)
 
-            # Кнопка "Назад" (последняя кнопка)
-            back_button = self.selection_buttons[3]
-            back_button.check_hover(mouse_pos)
-            back_button.draw(surface)
+            # Подсветка выбранного аксессуара
+            if selected_accessory_type == accessory_id:
+                pygame.draw.rect(surface, YELLOW, (x_pos - 2, 198, 204, 64), 3, border_radius=10)
 
-            # Информация о текущем выборе
-            if selected_accessory_type > 0:
-                info_font = pygame.font.SysFont('arial', 18)
-                accessory_names = ["", "Шляпа", "Очки", "Бант"]
-                info_text = info_font.render(
-                    f"Текущий выбор: {accessory_names[selected_accessory_type]}",
-                    True, GREEN
-                )
-                surface.blit(info_text, (SCREEN_WIDTH // 2 - info_text.get_width() // 2, 380))
+        # Кнопка назад
+        back_button = Button(SCREEN_WIDTH // 2 - 75, 380, 150, 50, "Назад", self.close_selection)
+        back_button.check_hover(mouse_pos)
+        back_button.draw(surface)
 
 # Создаем меню
 game_menu = GameMenu()
@@ -861,6 +958,7 @@ while running:
             save_money_score()
             running = False
 
+
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RETURN:  # Enter
                 if not game_over:
@@ -874,6 +972,7 @@ while running:
                         game_menu.show_selection = False
                         # Возвращаемся в игру (убираем паузу)
                         game_paused = False
+                        game_menu.save_shop_state()
 
             if not game_menu.active:  # Только если меню не активно
                 if event.key == pygame.K_p or event.key == ord('з'):
@@ -1125,5 +1224,6 @@ while running:
 
 save_high_score(high_score)
 save_money_score(total_coins+current_coins)
+save_game_state()
 pygame.quit()
 sys.exit()
