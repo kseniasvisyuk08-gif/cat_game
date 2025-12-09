@@ -350,7 +350,8 @@ class GameMenu:
             Button(50, 500, 150, 50, "Купить шляпу (10)", lambda: self.buy_item("hat", 10)),
             Button(250, 500, 150, 50, "Купить очки (20)", lambda: self.buy_item("glasses", 20)),
             Button(450, 500, 150, 50, "Купить бант (15)", lambda: self.buy_item("bow", 15)),
-            Button(650, 500, 150, 50, "Назад", self.close_shop)
+            Button(650, 500, 150, 50, "Выбрать", self.show_selection_menu),
+            Button(SCREEN_WIDTH // 2 - 75, 550, 150, 50, "Продолжить игру", self.continue_game_from_shop)
         ]
 
         #Кнопки выбора акссесуара
@@ -370,6 +371,13 @@ class GameMenu:
 
         # Кнопка назад для инструкций
         self.back_button = Button(SCREEN_WIDTH // 2 - 75, 500, 150, 50, "Назад", self.close_instructions)
+
+    def show_selection_menu(self):
+        if len(self.purchased_items) > 0:
+            self.show_selection = True
+            self.show_shop = False
+        else:
+            print("Сначала купите хотя бы один аксессуар!")
 
     def save_shop_state(self):
         shop_data = {
@@ -402,6 +410,20 @@ class GameMenu:
         self.show_selection = False
         self.show_shop = True
 
+    def continue_game(self):
+        self.active = False
+        self.show_selection = False
+        self.show_shop = False
+        self.show_instructions = False
+        self.save_shop_state()
+
+    def continue_game_from_shop(self):
+        self.continue_game()
+
+    def back_to_shop(self):
+        self.show_selection = False
+        self.show_shop = True
+
     def buy_item(self, item, cost):
         if self.coins >= cost and item not in self.purchased_items:
             self.coins -= cost
@@ -409,11 +431,12 @@ class GameMenu:
             print(f"Куплен {item} за {cost} монет")
 
             global total_coins, current_coins
-            total_coins=self.coins - current_coins
+            total_coins = self.coins - current_coins
             update_money_score(self.coins)
 
             self.save_shop_state()
 
+            # Сразу показываем меню выбора после покупки
             if len(self.purchased_items) > 0:
                 self.show_selection = True
                 self.show_shop = False
@@ -437,7 +460,6 @@ class GameMenu:
         if not self.active:
             return
 
-        # Полупрозрачный фон
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         surface.blit(overlay, (0, 0))
@@ -517,24 +539,19 @@ class GameMenu:
 
         y_offset = 150
         for name, description, price, item_id in items:
-            # Рамка предмета
             pygame.draw.rect(surface, LIGHT_GRAY, (100, y_offset, 600, 80), border_radius=10)
             pygame.draw.rect(surface, DARK_GRAY, (100, y_offset, 600, 80), 2, border_radius=10)
 
-            # Название
             name_text = item_font.render(name, True, BLACK)
             surface.blit(name_text, (120, y_offset + 10))
 
-            # Описание
             desc_font = pygame.font.SysFont('arial', 18)
             desc_text = desc_font.render(description, True, DARK_GRAY)
             surface.blit(desc_text, (120, y_offset + 40))
 
-            # Цена
             price_text = item_font.render(price, True, GRAY if item_id not in self.purchased_items else GREEN)
             surface.blit(price_text, (600, y_offset + 30))
 
-            # Статус
             status_font = pygame.font.SysFont('arial', 18)
             if item_id in self.purchased_items:
                 status_text = status_font.render("Куплено", True, GREEN)
@@ -542,61 +559,153 @@ class GameMenu:
 
             y_offset += 100
 
-        # Кнопки
         mouse_pos = pygame.mouse.get_pos()
-        for button in self.shop_buttons:
-            button.check_hover(mouse_pos)
-            button.draw(surface)
+        for i in range(4):
+            self.shop_buttons[i].rect.y = 500
+            self.shop_buttons[i].check_hover(mouse_pos)
+            self.shop_buttons[i].draw(surface)
+        self.shop_buttons[4].rect.y = 550
+        self.shop_buttons[4].check_hover(mouse_pos)
+        self.shop_buttons[4].draw(surface)
 
-    def draw_selection(self,surface):
+    def draw_selection(self, surface):
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 200))
         surface.blit(overlay, (0, 0))
 
-        # Заголовок
         title_font = pygame.font.SysFont('arial', 40, bold=True)
         title = title_font.render("ВЫБЕРИТЕ АКСЕССУАР", True, WHITE)
         surface.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
 
-        # Подзаголовок
         subtitle_font = pygame.font.SysFont('arial', 24)
-        subtitle = subtitle_font.render("Какой аксессуар надеть?", True, WHITE)
+        subtitle = subtitle_font.render("Какой аксессуар надеть на кота?", True, WHITE)
         surface.blit(subtitle, (SCREEN_WIDTH // 2 - subtitle.get_width() // 2, 120))
 
-        # Рисуем ровные кнопки
-        mouse_pos = pygame.mouse.get_pos()
+        current_font = pygame.font.SysFont('arial', 22)
 
-        # Отображение доступных аксессуаров
+        accessory_names = {
+            0: "Без аксессуара",
+            1: "Шляпа",
+            2: "Очки",
+            3: "Бант"
+        }
+
+        current_text = current_font.render(f"Текущий: {accessory_names[selected_accessory_type]}", True, YELLOW)
+        surface.blit(current_text, (SCREEN_WIDTH // 2 - current_text.get_width() // 2, 160))
+
         available_items = []
         if "hat" in self.purchased_items:
-            available_items.append(("Шляпа", 1))
+            available_items.append(("Шляпа", 1, "hat"))
         if "glasses" in self.purchased_items:
-            available_items.append(("Очки", 2))
+            available_items.append(("Очки", 2, "glasses"))
         if "bow" in self.purchased_items:
-            available_items.append(("Бант", 3))
-        
-        # Кнопка "Снять аксессуар"
-        if selected_accessory_type > 0:
-            self.remove_accessory_button = Button(SCREEN_WIDTH // 2 - 100, 300, 200, 50, "Снять аксессуар",
-                                                  lambda: self.select_accessory(0))
-            self.remove_accessory_button.check_hover(mouse_pos)
-            self.remove_accessory_button.draw(surface)
+            available_items.append(("Бант", 3, "bow"))
 
+        # Определяем позицию для кнопок внизу
+        button_y = 420  # Новая позиция для кнопок (ниже)
 
-        for i, (name, accessory_id) in enumerate(available_items):
-            x_pos = 100 + i * 250
-            button = Button(x_pos, 200, 200, 60, name, lambda acc_id=accessory_id: self.select_accessory(acc_id))
-            button.check_hover(mouse_pos)
-            button.draw(surface)
+        if not available_items:
+            no_items_font = pygame.font.SysFont('arial', 28)
+            no_items_text = no_items_font.render("У вас нет доступных аксессуаров", True, WHITE)
+            surface.blit(no_items_text, (SCREEN_WIDTH // 2 - no_items_text.get_width() // 2, 250))
+            button_y = 300  # Если нет аксессуаров, кнопки выше
+        else:
+            card_width = 180
+            card_height = 120
+            card_margin = 20
 
-            # Подсветка выбранного аксессуара
-            if selected_accessory_type == accessory_id:
-                pygame.draw.rect(surface, YELLOW, (x_pos - 2, 198, 204, 64), 3, border_radius=10)
-        self.back_selection_button = Button(SCREEN_WIDTH // 2 - 75, 380, 150, 50, "Назад", self.close_selection)
-        self.back_selection_button.check_hover(mouse_pos)
-        self.back_selection_button.draw(surface)
+            total_width = len(available_items) * card_width + (len(available_items) - 1) * card_margin
+            start_x = (SCREEN_WIDTH - total_width) // 2
+            y_pos = 220
 
-# Создаем меню
+            for i, (name, accessory_id, item_id) in enumerate(available_items):
+                card_x = start_x + i * (card_width + card_margin)
+
+                card_color = LIGHT_BLUE if selected_accessory_type != accessory_id else YELLOW
+                pygame.draw.rect(surface, card_color, (card_x, y_pos, card_width, card_height), border_radius=15)
+                pygame.draw.rect(surface, BLACK, (card_x, y_pos, card_width, card_height), 3, border_radius=15)
+
+                name_font = pygame.font.SysFont('arial', 24, bold=True)
+                name_text = name_font.render(name, True, BLACK)
+                surface.blit(name_text, (card_x + card_width // 2 - name_text.get_width() // 2, y_pos + 20))
+
+                button_rect = pygame.Rect(card_x + 20, y_pos + card_height - 40, card_width - 40, 30)
+                button_color = GREEN if selected_accessory_type == accessory_id else LIGHT_GRAY
+                pygame.draw.rect(surface, button_color, button_rect, border_radius=8)
+                pygame.draw.rect(surface, BLACK, button_rect, 2, border_radius=8)
+
+                button_text = "Выбрано" if selected_accessory_type == accessory_id else "Выбрать"
+                btn_font = pygame.font.SysFont('arial', 18)
+                btn_text = btn_font.render(button_text, True, BLACK)
+                surface.blit(btn_text, (card_x + card_width // 2 - btn_text.get_width() // 2, y_pos + card_height - 35))
+
+        # Кнопки внизу экрана
+        button_width = 140
+        button_height = 40
+        button_spacing = 20
+
+        # Рассчитываем позиции для трех кнопок
+        total_buttons_width = (button_width * 3) + (button_spacing * 2)
+        buttons_start_x = (SCREEN_WIDTH - total_buttons_width) // 2
+
+        # Кнопка "Без аксессуара"
+        no_accessory_rect = pygame.Rect(buttons_start_x, button_y, button_width, button_height)
+        no_accessory_color = GREEN if selected_accessory_type == 0 else LIGHT_GRAY
+        pygame.draw.rect(surface, no_accessory_color, no_accessory_rect, border_radius=10)
+        pygame.draw.rect(surface, BLACK, no_accessory_rect, 2, border_radius=10)
+
+        no_acc_font = pygame.font.SysFont('arial', 16)
+        no_acc_text = no_acc_font.render("Без аксессуара", True, BLACK)
+        surface.blit(no_acc_text, (no_accessory_rect.centerx - no_acc_text.get_width() // 2,
+                                   no_accessory_rect.centery - no_acc_text.get_height() // 2))
+
+        # Кнопка "Продолжить"
+        continue_rect = pygame.Rect(buttons_start_x + button_width + button_spacing, button_y, button_width,
+                                    button_height)
+        pygame.draw.rect(surface, GREEN, continue_rect, border_radius=10)
+        pygame.draw.rect(surface, BLACK, continue_rect, 2, border_radius=10)
+
+        continue_font = pygame.font.SysFont('arial', 18)
+        continue_text = continue_font.render("Продолжить", True, WHITE)
+        surface.blit(continue_text, (continue_rect.centerx - continue_text.get_width() // 2,
+                                     continue_rect.centery - continue_text.get_height() // 2))
+
+        # Кнопка "В магазин"
+        shop_rect = pygame.Rect(buttons_start_x + (button_width + button_spacing) * 2, button_y, button_width,
+                                button_height)
+        pygame.draw.rect(surface, BLUE, shop_rect, border_radius=10)
+        pygame.draw.rect(surface, BLACK, shop_rect, 2, border_radius=10)
+
+        shop_font = pygame.font.SysFont('arial', 18)
+        shop_text = shop_font.render("В магазин", True, WHITE)
+        surface.blit(shop_text, (shop_rect.centerx - shop_text.get_width() // 2,
+                                 shop_rect.centery - shop_text.get_height() // 2))
+
+        # Обработка кликов
+        mouse_pos = pygame.mouse.get_pos()
+        mouse_pressed = pygame.mouse.get_pressed()[0]
+
+        if mouse_pressed:
+            # Проверяем клики по карточкам аксессуаров
+            for i, (name, accessory_id, item_id) in enumerate(available_items):
+                if not available_items:
+                    break
+
+                card_x = start_x + i * (card_width + card_margin)
+                card_rect = pygame.Rect(card_x, y_pos, card_width, card_height)
+                if card_rect.collidepoint(mouse_pos):
+                    self.select_accessory(accessory_id)
+
+            # Проверяем клики по кнопкам
+            if no_accessory_rect.collidepoint(mouse_pos):
+                self.select_accessory(0)
+
+            if continue_rect.collidepoint(mouse_pos):
+                self.continue_game()
+
+            if shop_rect.collidepoint(mouse_pos):
+                self.back_to_shop()
+
 game_menu = GameMenu()
 
 
@@ -1014,7 +1123,7 @@ while running:
                 elif (event.key == pygame.K_r or event.key == ord('к')) and game_over:
                     reset_game()
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:  # Левая кнопка мыши
+            if event.button == 1:
                 mouse_pos = pygame.mouse.get_pos()
 
                 if game_menu.active:
@@ -1024,35 +1133,54 @@ while running:
                         for button in game_menu.shop_buttons:
                             button.check_click(mouse_pos)
                     elif game_menu.show_selection:
-                        # Обработка кнопок в меню выбора аксессуара
-                        available_items = []
-                        if "hat" in game_menu.purchased_items:
-                            available_items.append(("Шляпа", 1))
-                        if "glasses" in game_menu.purchased_items:
-                            available_items.append(("Очки", 2))
-                        if "bow" in game_menu.purchased_items:
-                            available_items.append(("Бант", 3))
+                        if event.button == 1:
+                            mouse_pos = pygame.mouse.get_pos()
 
-                        # Кнопка "Снять аксессуар"
-                        if selected_accessory_type > 0:
-                            remove_button = Button(SCREEN_WIDTH // 2 - 100, 300, 200, 50, "Снять аксессуар",
-                                                   lambda: game_menu.select_accessory(0))
-                            if remove_button.rect.collidepoint(mouse_pos):
+                            button_width = 140
+                            button_height = 40
+                            button_spacing = 20
+                            button_y = 420
+
+                            total_buttons_width = (button_width * 3) + (button_spacing * 2)
+                            buttons_start_x = (SCREEN_WIDTH - total_buttons_width) // 2
+
+                            no_accessory_rect = pygame.Rect(buttons_start_x, button_y, button_width, button_height)
+                            continue_rect = pygame.Rect(buttons_start_x + button_width + button_spacing, button_y,
+                                                            button_width, button_height)
+
+                            shop_rect = pygame.Rect(buttons_start_x + (button_width + button_spacing) * 2, button_y,
+                                                        button_width, button_height)
+
+                            if no_accessory_rect.collidepoint(mouse_pos):
                                 game_menu.select_accessory(0)
 
-                        # Кнопки доступных аксессуаров
-                        for i, (name, accessory_id) in enumerate(available_items):
-                            x_pos = 100 + i * 250
-                            button = Button(x_pos, 200, 200, 60, name,
-                                            lambda acc_id=accessory_id: game_menu.select_accessory(acc_id))
-                            if button.rect.collidepoint(mouse_pos):
-                                game_menu.select_accessory(accessory_id)
+                            elif continue_rect.collidepoint(mouse_pos):
+                                game_menu.continue_game()
 
-                        # Кнопка назад
-                        back_button = Button(SCREEN_WIDTH // 2 - 75, 380, 150, 50, "Назад",
-                                             game_menu.close_selection)
-                        if back_button.rect.collidepoint(mouse_pos):
-                            game_menu.close_selection()
+                            elif shop_rect.collidepoint(mouse_pos):
+                                game_menu.back_to_shop()
+
+                            available_items = []
+                            if "hat" in game_menu.purchased_items:
+                                available_items.append(("Шляпа", 1, "hat"))
+                            if "glasses" in game_menu.purchased_items:
+                                available_items.append(("Очки", 2, "glasses"))
+                            if "bow" in game_menu.purchased_items:
+                                available_items.append(("Бант", 3, "bow"))
+
+                            if available_items:
+                                card_width = 180
+                                card_height = 120
+                                card_margin = 20
+                                total_width = len(available_items) * card_width + (len(available_items) - 1) * card_margin
+                                start_x = (SCREEN_WIDTH - total_width) // 2
+                                y_pos = 220
+
+                                for i, (name, accessory_id, item_id) in enumerate(available_items):
+                                    card_x = start_x + i * (card_width + card_margin)
+                                    card_rect = pygame.Rect(card_x, y_pos, card_width, card_height)
+                                    if card_rect.collidepoint(mouse_pos):
+                                        game_menu.select_accessory(accessory_id)
 
                     else:  # Главное меню
                         for button in game_menu.menu_buttons:
