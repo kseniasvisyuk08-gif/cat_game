@@ -3,7 +3,7 @@ import random
 import sys
 import json
 import os
-import atexit  # Добавляем модуль для регистрации функций при выходе
+import atexit
 
 # Инициализация Pygame
 pygame.init()  # инициализируем библиотеку, чтобы использовать функции
@@ -24,9 +24,13 @@ BALL_SPEED = 10
 
 # Глобальная переменная для рекорда
 global_high_score = 0
+global_money_score = 0
 score_updated = False  # Флаг, что рекорд обновлен и нужно сохранить
 new_record_achieved = False  # Флаг, что достигнут новый рекорд
+money_updated = False
 HIGH_SCORE_FILE = "high_score.json"
+MONEY_SCORE_FILE = "money_score.json"
+SHOP_DATA_FILE = "shop.json"
 
 # Цвета
 WHITE = (255, 255, 255)
@@ -40,7 +44,10 @@ BROWN = (139, 69, 19)
 PURPLE = (128, 0, 128)
 GRAY = (128, 128, 128)
 PINK = (255, 182, 193)
-GOLD = (255, 215, 0)  # Золотой цвет для нового рекорда
+LIGHT_BLUE = (173, 216, 230)
+LIGHT_GRAY = (200, 200, 200)
+DARK_GRAY = (100, 100, 100)
+GOLD = (255, 215, 0)
 
 # Создание окна
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))  # задаем размеры экрана
@@ -50,7 +57,6 @@ clock = pygame.time.Clock()
 
 # Функции для работы с рекордом
 def load_high_score():
-    """Загрузка рекорда из JSON файла"""
     global global_high_score
 
     if not os.path.exists(HIGH_SCORE_FILE):
@@ -75,8 +81,29 @@ def load_high_score():
     return 0
 
 
+def load_money_score():
+    global global_money_score
+    if not os.path.exists(MONEY_SCORE_FILE):
+        global_money_score = 0
+        return 0
+    file = open(MONEY_SCORE_FILE, 'r', encoding='utf-8')
+    content = file.read()
+    file.close()
+
+    if not content.strip():
+        global_money_score = 0
+        return 0
+    data = json.loads(content)
+
+    if isinstance(data, dict) and "money_score" in data:
+        global_money_score = data["money_score"]
+        return global_money_score
+
+    global_money_score = 0
+    return 0
+
+
 def save_high_score():
-    """Сохранение рекорда в JSON файл"""
     global global_high_score, score_updated
 
     if not score_updated:
@@ -90,37 +117,118 @@ def save_high_score():
     score_updated = False
 
 
+def save_money_score():
+    global global_money_score, money_updated
+
+    if not money_updated:
+        return
+    data = {"money_score": int(global_money_score)}
+    file = open(MONEY_SCORE_FILE, 'w', encoding='utf-8')
+    json.dump(data, file, ensure_ascii=False, indent=4)
+    file.close()
+
+    money_updated = False
+
+
 def update_high_score(new_score):
-    """Обновление рекорда"""
     global global_high_score, score_updated, new_record_achieved
 
     if new_score > global_high_score:
         global_high_score = int(new_score)
         score_updated = True
-        new_record_achieved = True  # Устанавливаем флаг нового рекорда
+        new_record_achieved = True
         save_high_score()
 
     return global_high_score
 
 
-# Регистрируем функцию сохранения при выходе из программы
+def update_money_score(new_money_score):
+    global global_money_score, money_updated
+
+    global_money_score = int(new_money_score)
+    money_updated = True
+    save_money_score()
+
+    return global_money_score
+
+
+def load_shop_data():
+    if not os.path.exists(SHOP_DATA_FILE):
+        initial_data = {
+            "purchased_items": [],
+            "coins": 0,
+            "selected_accessory": 0
+        }
+        save_shop_data(initial_data)
+        return initial_data
+
+    file = open(SHOP_DATA_FILE, 'r', encoding='utf-8')
+    content = file.read()
+    file.close()
+
+    if not content.strip():
+        data = {
+            "purchased_items": [],
+            "coins": 0,
+            "selected_accessory": 0
+        }
+        return data
+
+    data = json.loads(content)
+
+    if not isinstance(data, dict):
+        data = {
+            "purchased_items": [],
+            "coins": 0,
+            "selected_accessory": 0
+        }
+    else:
+        if "purchased_items" not in data:
+            data["purchased_items"] = []
+        if "coins" not in data:
+            data["coins"] = 0
+        if "selected_accessory" not in data:
+            data["selected_accessory"] = 0
+
+    return data
+
+
+def save_shop_data(data):
+    file = open(SHOP_DATA_FILE, 'w', encoding='utf-8')
+    json.dump(data, file, ensure_ascii=False, indent=4)
+    file.close()
+    return True
+
+
+def save_game_state():
+    # Сохраняем данные магазина из меню
+    shop_data = {
+        "purchased_items": list(game_menu.purchased_items),
+        "coins": game_menu.coins,
+        "selected_accessory": selected_accessory_type
+    }
+    save_shop_data(shop_data)
+    save_high_score()
+    save_money_score()
+
+
 atexit.register(save_high_score)
+atexit.register(save_money_score)
 
 
-# Загрузка изображения name
+# Загрузка изображения
 def load_image(name, scale=1):
-    image = pygame.image.load(name)  # загрузка изображения по заданному пути
+    image = pygame.image.load(name)
     if scale != 1:
-        new_size = (int(image.get_width() * scale),
-                    int(image.get_height() * scale))  # get_width/get_height-функции из pygame
-        image = pygame.transform.scale(image, new_size)  # меняет масштаб изображения на заданный в предыдущей строке
-    return image.convert_alpha()  # заменяем прозрачные пиксели на черный
+        new_size = (int(image.get_width() * scale), int(image.get_height() * scale))
+        image = pygame.transform.scale(image, new_size)  #
+    return image.convert_alpha()
 
 
 # Загрузка фонов
 backgrounds = []
 for i in range(1, 5):  # цикл для загрузки 4 фонов
-    bg = load_image(f"fon{i}.png")  # загружен файлы, которые отвечают за фон
+    bg = load_image(f"fon{i}.png")  # загружены файлы, которые отвечают за фон
     if bg.get_width() != SCREEN_WIDTH or bg.get_height() != SCREEN_HEIGHT:  # меняем размер фона на размер экрана
         bg = pygame.transform.scale(bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
     backgrounds.append(bg)
@@ -128,7 +236,6 @@ for i in range(1, 5):  # цикл для загрузки 4 фонов
 current_bg = 0
 bg_x = 0
 
-# music
 # музыка
 music = []
 pygame.mixer.init()
@@ -144,18 +251,461 @@ def get_text_color():
         return BLACK
 
 
-# Загрузка спрайтов кота
-cat_stand = load_image("cat1.png", 1.6)
-cat_jump = load_image("cat2.png", 1.6)
-cat_cloud = load_image("cat3.png", 1.2)
+# переменная для выбранного аксесуара(0-нет ничего, 1-шляпа,2-очки,3-бант)
+selected_accessory_type = 0
 
-# меняем размеры кота, чтобы создавалась иллюзия движения
-cat_run_frames = []
-for i in range(2):
-    frame = cat_stand.copy()
-    if i % 2 == 0:
-        frame = pygame.transform.scale(frame, (int(frame.get_width() * 0.9), int(frame.get_height() * 0.95)))
-    cat_run_frames.append(frame)
+# Загрузка спрайтов кота
+cat_stand0 = load_image("cat1.png", 1.6)
+cat_jump0 = load_image("cat2.png", 1.6)
+cat_cloud0 = load_image("cat3.png", 1.2)
+
+cat_stand1 = load_image("cathat1.png", 1.6)
+cat_jump1 = load_image("cathat2.png", 1.6)
+cat_cloud1 = load_image("cathat3.png", 1.2)
+
+cat_stand2 = load_image("catglasses1.png", 1.6)
+cat_jump2 = load_image("catglasses2.png", 1.6)
+cat_cloud2 = load_image("catglasses3.png", 1.2)
+
+cat_stand3 = load_image("catbow1.png", 1.6)
+cat_jump3 = load_image("catbow2.png", 1.6)
+cat_cloud3 = load_image("catbow3.png", 1.2)
+
+cat_stand = [cat_stand0, cat_stand1, cat_stand2, cat_stand3]
+cat_jump = [cat_jump0, cat_jump1, cat_jump2, cat_jump3]
+cat_cloud = [cat_cloud0, cat_cloud1, cat_cloud2, cat_cloud3]
+
+
+# Класс для кнопок
+class Button:
+    def __init__(self, x, y, width, height, text, action=None):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.text = text
+        self.action = action
+        self.color = LIGHT_BLUE
+        self.hover_color = (150, 200, 255)
+        self.current_color = self.color
+        self.font = pygame.font.SysFont('arial', 20)
+
+    def draw(self, surface):
+        pygame.draw.rect(surface, self.current_color, self.rect, border_radius=10)
+        pygame.draw.rect(surface, BLACK, self.rect, 2, border_radius=10)
+
+        text_surf = self.font.render(self.text, True, BLACK)
+        text_rect = text_surf.get_rect(center=self.rect.center)
+        surface.blit(text_surf, text_rect)
+
+    def check_hover(self, pos):
+        if self.rect.collidepoint(pos):
+            self.current_color = self.hover_color
+            return True
+        else:
+            self.current_color = self.color
+            return False
+
+    def check_click(self, pos):
+        if self.rect.collidepoint(pos):
+            if self.action:
+                self.action()
+            return True
+        return False
+
+
+# Меню состояния
+class GameMenu:
+    def __init__(self):
+        self.active = False
+        self.show_instructions = False
+        self.show_shop = False
+        self.show_search = False
+        self.show_selection = False
+        self.selection_buttons = []
+
+        button_width = 180
+        button_height = 60
+        button_margin = 20
+        total_width = (button_width * 3) + (button_margin * 2)
+        start_x = (SCREEN_WIDTH - total_width) // 2
+
+        shop_data = load_shop_data()
+        self.purchased_items = set(shop_data["purchased_items"])
+        self.coins = shop_data["coins"]
+
+        global selected_accessory_type
+        selected_accessory_type = shop_data.get("selected_accessory", 0)
+
+        # Кнопки главного меню
+        center_x = SCREEN_WIDTH // 2
+        self.menu_buttons = [
+            Button(center_x - 150, 200, 300, 60, "Инструкция", self.show_instructions_menu),
+            Button(center_x - 150, 280, 300, 60, "Магазин", self.show_shop_menu),
+            Button(center_x - 150, 360, 300, 60, "Продолжить", self.close_menu)
+        ]
+
+        # Кнопки магазина
+        self.shop_buttons = [
+            Button(50, 500, 150, 50, "Купить шляпу (10)", lambda: self.buy_item("hat", 10)),
+            Button(250, 500, 150, 50, "Купить очки (20)", lambda: self.buy_item("glasses", 20)),
+            Button(450, 500, 150, 50, "Купить бант (15)", lambda: self.buy_item("bow", 15)),
+            Button(650, 500, 150, 50, "Выбрать", self.show_selection_menu),
+            Button(SCREEN_WIDTH // 2 - 75, 550, 150, 50, "Продолжить игру", self.continue_game_from_shop)
+        ]
+
+        # Кнопки выбора акссесуара
+        self.selection_buttons = [
+            Button(start_x, 200, button_width, button_height,
+                   "Шляпа", lambda: self.select_accessory(1)),
+            Button(start_x + button_width + button_margin, 200,
+                   button_width, button_height, "Очки",
+                   lambda: self.select_accessory(2)),
+            Button(start_x + (button_width + button_margin) * 2, 200,
+                   button_width, button_height, "Бант",
+                   lambda: self.select_accessory(3)),
+            Button(SCREEN_WIDTH // 2 - 75, 300, 150, 50,
+                   "Назад", self.close_selection)
+        ]
+
+        # Кнопка назад для инструкций
+        self.back_button = Button(SCREEN_WIDTH // 2 - 75, 500, 150, 50, "Назад", self.close_instructions)
+
+    def show_selection_menu(self):
+        self.show_selection = True
+        self.show_shop = False
+        self.show_instructions = False
+        print(f"Купленные аксессуары: {self.purchased_items}")
+
+    def save_shop_state(self):
+        shop_data = {
+            "purchased_items": list(self.purchased_items),
+            "coins": self.coins,
+            "selected_accessory": selected_accessory_type
+        }
+        save_shop_data(shop_data)
+
+    def show_instructions_menu(self):
+        self.show_instructions = True
+        self.show_shop = False
+
+    def show_shop_menu(self):
+        self.show_shop = True
+        self.show_instructions = False
+
+    def close_menu(self):
+        self.active = False
+        self.show_instructions = False
+        self.show_shop = False
+
+    def close_shop(self):
+        self.show_shop = False
+
+    def close_instructions(self):
+        self.show_instructions = False
+
+    def close_selection(self):
+        self.show_selection = False
+        self.show_shop = True
+
+    def continue_game(self):
+        self.active = False
+        self.show_selection = False
+        self.show_shop = False
+        self.show_instructions = False
+        self.save_shop_state()
+
+    def continue_game_from_shop(self):
+        self.continue_game()
+
+    def back_to_shop(self):
+        self.show_selection = False
+        self.show_shop = True
+
+    def buy_item(self, item, cost):
+        if self.coins >= cost and item not in self.purchased_items:
+            self.coins -= cost
+            self.purchased_items.add(item)
+            print(f"Куплен {item} за {cost} монет")
+
+            global total_coins, current_coins
+            total_coins = self.coins - current_coins
+            update_money_score(self.coins)
+
+            self.save_shop_state()
+
+        else:
+            if item in self.purchased_items:
+                print(f"{item} уже куплен!")
+            else:
+                print(f"Недостаточно монет! Нужно {cost}, есть {self.coins}")
+
+    def select_accessory(self, accessory_type):
+        global selected_accessory_type, cat
+        selected_accessory_type = accessory_type
+        print(f"Выбран аксессуар: {accessory_type}")
+
+        cat.update_sprites()
+        self.save_shop_state()
+
+    def draw(self, surface):
+        if not self.active:
+            return
+
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        surface.blit(overlay, (0, 0))
+
+        if self.show_instructions:
+            self.draw_instructions(surface)
+        elif self.show_shop:
+            self.draw_shop(surface)
+        elif self.show_selection:
+            self.draw_selection(surface)
+        else:
+            self.draw_main_menu(surface)
+
+    def draw_main_menu(self, surface):
+        # Заголовок
+        title_font = pygame.font.SysFont('arial', 48, bold=True)
+        title = title_font.render("МЕНЮ ИГРЫ", True, WHITE)
+        surface.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 100))
+
+        # Кнопки
+        mouse_pos = pygame.mouse.get_pos()
+        for button in self.menu_buttons:
+            button.check_hover(mouse_pos)
+            button.draw(surface)
+
+    def draw_instructions(self, surface):
+        # Заголовок
+        title_font = pygame.font.SysFont('arial', 40, bold=True)
+        title = title_font.render("ИНСТРУКЦИЯ", True, WHITE)
+        surface.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
+
+        # Текст инструкции
+        font = pygame.font.SysFont('arial', 18)
+        instructions = [
+            "",
+            "",
+            "УПРАВЛЕНИЕ:                                                                                                 СОБИРАЙТЕ МОНЕТЫ:",
+            "• ПРОБЕЛ - Высокий прыжок через высокие препятствия                          • Монеты (+10 очков)",
+            "• СТРЕЛКА ВВЕРХ - Низкий прыжок через низкие препятствия                • Рыба (+15 очков)",
+            "• СТРЕЛКА ВНИЗ - Присесть под облаками                                                 • Мясо (+20 очков)",
+            "• СТРЕЛКА ВПРАВО - Выстрелить клубком в мышей                                 • Молоко (+25 очков)",
+            "• ENTER - Открыть/закрыть меню",
+            "• B - Сменить фон",
+            "• P - Пауза/продолжить",
+            "• R - Перезапуск после проигрыша"
+        ]
+
+        y_offset = 100
+        for line in instructions:
+            text = font.render(line, True, WHITE)
+            surface.blit(text, (50, y_offset))
+            y_offset += 30
+
+        # Кнопка назад
+        mouse_pos = pygame.mouse.get_pos()
+        self.back_button.check_hover(mouse_pos)
+        self.back_button.draw(surface)
+
+    def draw_shop(self, surface):
+        # Заголовок
+        title_font = pygame.font.SysFont('arial', 40, bold=True)
+        title = title_font.render("МАГАЗИН АКСЕССУАРОВ", True, WHITE)
+        surface.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
+
+        # Баланс монет
+        font = pygame.font.SysFont('arial', 32)
+        balance_text = font.render(f"Монет: {self.coins}", True, WHITE)
+        surface.blit(balance_text, (SCREEN_WIDTH // 2 - balance_text.get_width() // 2, 100))
+
+        # Список предметов
+        item_font = pygame.font.SysFont('arial', 24)
+        items = [
+            ("Шляпа", "Модная шляпа для кота", "10 монет", "hat"),
+            ("Очки", "Стильные солнцезащитные очки", "20 монет", "glasses"),
+            ("Бант", "Элегантный бант на шею", "15 монет", "bow")
+        ]
+
+        y_offset = 150
+        for name, description, price, item_id in items:
+            pygame.draw.rect(surface, LIGHT_GRAY, (100, y_offset, 600, 80), border_radius=10)
+            pygame.draw.rect(surface, DARK_GRAY, (100, y_offset, 600, 80), 2, border_radius=10)
+
+            name_text = item_font.render(name, True, BLACK)
+            surface.blit(name_text, (120, y_offset + 10))
+
+            desc_font = pygame.font.SysFont('arial', 18)
+            desc_text = desc_font.render(description, True, DARK_GRAY)
+            surface.blit(desc_text, (120, y_offset + 40))
+
+            price_text = item_font.render(price, True, GRAY if item_id not in self.purchased_items else GREEN)
+            surface.blit(price_text, (600, y_offset + 30))
+
+            status_font = pygame.font.SysFont('arial', 18)
+            if item_id in self.purchased_items:
+                status_text = status_font.render("Куплено", True, GREEN)
+                surface.blit(status_text, (620, y_offset + 55))
+
+            y_offset += 100
+
+        mouse_pos = pygame.mouse.get_pos()
+        for i in range(4):
+            self.shop_buttons[i].rect.y = 500
+            self.shop_buttons[i].check_hover(mouse_pos)
+            self.shop_buttons[i].draw(surface)
+        self.shop_buttons[4].rect.y = 550
+        self.shop_buttons[4].check_hover(mouse_pos)
+        self.shop_buttons[4].draw(surface)
+
+    def draw_selection(self, surface):
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        surface.blit(overlay, (0, 0))
+
+        title_font = pygame.font.SysFont('arial', 40, bold=True)
+        title = title_font.render("ВЫБЕРИТЕ АКСЕССУАР", True, WHITE)
+        surface.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 30))
+
+        # собираем все доступные элементы
+        available_items = [("Без аксессуара", 0, "none")]
+
+        # добавляем купленные аксессуары
+        if "hat" in self.purchased_items:
+            available_items.append(("Шляпа", 1, "hat"))
+        if "glasses" in self.purchased_items:
+            available_items.append(("Очки", 2, "glasses"))
+        if "bow" in self.purchased_items:
+            available_items.append(("Бант", 3, "bow"))
+
+        # если нет купленных аксессуаров
+        if len(available_items) <= 1:
+            subtitle_font = pygame.font.SysFont('arial', 24)
+            subtitle = subtitle_font.render("У вас нет купленных аксессуаров", True, YELLOW)
+            surface.blit(subtitle, (SCREEN_WIDTH // 2 - subtitle.get_width() // 2, 100))
+
+            hint_font = pygame.font.SysFont('arial', 20)
+            hint = hint_font.render("Купите аксессуары в магазине", True, WHITE)
+            surface.blit(hint, (SCREEN_WIDTH // 2 - hint.get_width() // 2, 140))
+
+            button_width = 200
+            button_height = 50
+            button_y = 200
+
+            shop_rect = pygame.Rect(SCREEN_WIDTH // 2 - button_width // 2, button_y, button_width, button_height)
+            pygame.draw.rect(surface, BLUE, shop_rect, border_radius=10)
+            pygame.draw.rect(surface, BLACK, shop_rect, 2, border_radius=10)
+
+            shop_font = pygame.font.SysFont('arial', 20)
+            shop_text = shop_font.render("Вернуться в магазин", True, WHITE)
+            surface.blit(shop_text, (shop_rect.centerx - shop_text.get_width() // 2,
+                                     shop_rect.centery - shop_text.get_height() // 2))
+
+            mouse_pos = pygame.mouse.get_pos()
+            if pygame.mouse.get_pressed()[0] and shop_rect.collidepoint(mouse_pos):
+                self.back_to_shop()
+
+            return
+
+        # если есть купленные аксессуары - показываем их в один ряд
+        subtitle_font = pygame.font.SysFont('arial', 24)
+        subtitle = subtitle_font.render("Какой аксессуар надеть на кота?", True, WHITE)
+        surface.blit(subtitle, (SCREEN_WIDTH // 2 - subtitle.get_width() // 2, 90))
+
+        current_font = pygame.font.SysFont('arial', 22)
+        accessory_names = {
+            0: "Без аксессуара",
+            1: "Шляпа",
+            2: "Очки",
+            3: "Бант"
+        }
+        current_text = current_font.render(f"Текущий: {accessory_names[selected_accessory_type]}", True, YELLOW)
+        surface.blit(current_text, (SCREEN_WIDTH // 2 - current_text.get_width() // 2, 130))
+
+        card_width = 150
+        card_height = 200
+        card_margin = 15
+
+        total_width = len(available_items) * card_width + (len(available_items) - 1) * card_margin
+        start_x = (SCREEN_WIDTH - total_width) // 2
+
+        y_pos = 180
+
+        # отображаем все карточки в один ряд
+        for i, (name, accessory_id, item_id) in enumerate(available_items):
+            card_x = start_x + i * (card_width + card_margin)
+
+            is_selected = (selected_accessory_type == accessory_id)
+            card_color = GREEN if is_selected else LIGHT_GRAY
+
+            pygame.draw.rect(surface, card_color, (card_x, y_pos, card_width, card_height), border_radius=10)
+            pygame.draw.rect(surface, BLACK, (card_x, y_pos, card_width, card_height), 2, border_radius=10)
+
+            cat_image = cat_stand[accessory_id]
+
+            image_width = card_width - 30
+            image_height = int(cat_image.get_height() * (image_width / cat_image.get_width()))
+
+            max_image_height = 90
+            if image_height > max_image_height:
+                image_height = max_image_height
+                image_width = int(cat_image.get_width() * (image_height / cat_image.get_height()))
+
+            scaled_cat = pygame.transform.scale(cat_image, (image_width, image_height))
+
+            image_x = card_x + (card_width - image_width) // 2
+            image_y = y_pos + 15
+            surface.blit(scaled_cat, (image_x, image_y))
+
+            name_font = pygame.font.SysFont('arial', 18, bold=True)
+            name_text = name_font.render(name, True, BLACK)
+            name_y = image_y + image_height + 15
+            surface.blit(name_text, (card_x + card_width // 2 - name_text.get_width() // 2, name_y))
+
+            button_height = 30
+            button_y_pos = name_y + 25
+            button_rect = pygame.Rect(card_x + 20, button_y_pos, card_width - 40, button_height)
+            button_color = GREEN if is_selected else BLUE
+
+            pygame.draw.rect(surface, button_color, button_rect, border_radius=8)
+            pygame.draw.rect(surface, BLACK, button_rect, 2, border_radius=8)
+
+            button_text = "Выбрано" if is_selected else "Выбрать"
+            btn_font = pygame.font.SysFont('arial', 14)
+            btn_text = btn_font.render(button_text, True, WHITE if is_selected else BLACK)
+            surface.blit(btn_text, (card_x + card_width // 2 - btn_text.get_width() // 2,
+                                    button_y_pos + button_height // 2 - btn_text.get_height() // 2))
+
+        button_width = 180
+        button_height = 45
+        button_spacing = 20
+        button_y = y_pos + card_height + 30
+
+        total_buttons_width = (button_width * 2) + button_spacing
+        buttons_start_x = (SCREEN_WIDTH - total_buttons_width) // 2
+
+        # кнопка "Продолжить"
+        continue_rect = pygame.Rect(buttons_start_x, button_y, button_width, button_height)
+        pygame.draw.rect(surface, GREEN, continue_rect, border_radius=10)
+        pygame.draw.rect(surface, BLACK, continue_rect, 2, border_radius=10)
+
+        continue_font = pygame.font.SysFont('arial', 18)
+        continue_text = continue_font.render("Продолжить игру", True, WHITE)
+        surface.blit(continue_text, (continue_rect.centerx - continue_text.get_width() // 2,
+                                     continue_rect.centery - continue_text.get_height() // 2))
+
+        # кнопка "В магазин"
+        shop_rect = pygame.Rect(buttons_start_x + button_width + button_spacing, button_y,
+                                button_width, button_height)
+        pygame.draw.rect(surface, BLUE, shop_rect, border_radius=10)
+        pygame.draw.rect(surface, BLACK, shop_rect, 2, border_radius=10)
+
+        shop_font = pygame.font.SysFont('arial', 18)
+        shop_text = shop_font.render("Вернуться в магазин", True, WHITE)
+        surface.blit(shop_text, (shop_rect.centerx - shop_text.get_width() // 2,
+                                 shop_rect.centery - shop_text.get_height() // 2))
+
+
+game_menu = GameMenu()
 
 
 # выстрел
@@ -239,16 +789,8 @@ for i in range(1, 4):
 class Cat(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        # задаем спрайты  на все состояния кота
-        self.run_frames_right = cat_run_frames
-        self.jump_frame_right = cat_jump
-        self.stand_frame_right = cat_stand
-        self.cloud_frame_right = cat_cloud
 
         self.current_frame = 0
-        self.image = self.run_frames_right[self.current_frame]  # отображение текущнго спрайта через массив спрайтов
-        self.rect = self.image.get_rect()
-        self.rect.center = (100, SCREEN_HEIGHT - 100)
         self.velocity_y = 0
         self.is_jumping = False
         self.is_clouding = False
@@ -257,21 +799,63 @@ class Cat(pygame.sprite.Sprite):
         self.animation_counter = 0
         self.can_shoot = True
         self.shoot_cooldown = 0
-        # Запоминаем уровень земли кота
         self.ground_level = SCREEN_HEIGHT - 50
-        # Фиксированная высота для мышей - НИЖЕ центра кота
-        self.mouse_spawn_height = SCREEN_HEIGHT - 57  # Мыши появляются ближе к земле
+        self.mouse_spawn_height = SCREEN_HEIGHT - 57
+
+        # Новые переменные для отслеживания прыжка
+        self.jump_start_y = 0
+        self.max_jump_height = 0
+        self.can_pass_high_obstacle = True  # Может пройти высокое препятствие
+
+        self.update_sprites()
+
+        self.rect = self.image.get_rect()
+        self.rect.center = (100, SCREEN_HEIGHT - 100)
+
+    def update_sprites(self):
+        global selected_accessory_type
+        self.stand_frame_right = cat_stand[selected_accessory_type]
+        self.jump_frame_right = cat_jump[selected_accessory_type]
+        self.cloud_frame_right = cat_cloud[selected_accessory_type]
+        self.run_frames_right = []
+        for i in range(2):
+            frame = self.stand_frame_right.copy()
+            if i % 2 == 0:
+                frame = pygame.transform.scale(frame, (int(frame.get_width() * 0.9), int(frame.get_height() * 0.95)))
+            self.run_frames_right.append(frame)
+
+        if hasattr(self, 'image'):
+            if self.is_jumping:
+                self.image = self.jump_frame_right
+            elif self.is_clouding:
+                self.image = self.cloud_frame_right
+            else:
+                frame_index = self.current_frame % len(self.run_frames_right)
+                self.image = self.run_frames_right[frame_index]
+        else:
+            self.image = self.run_frames_right[0]
 
     def update(self):
-        # Гравитация
         self.velocity_y += GRAVITY
         self.rect.y += self.velocity_y
 
-        # проверка находится ли кот на земле
+        # Проверка находится ли кот на земле
         if self.rect.bottom > self.ground_level:
             self.rect.bottom = self.ground_level
             self.velocity_y = 0
             self.is_jumping = False
+            self.can_pass_high_obstacle = True  # Сбрасываем при приземлении
+
+        # Определяем середину прыжка
+        if self.is_jumping:
+            # Если скорость Y стала положительной (начал падать) и еще высоко
+            if self.velocity_y > 0 and self.rect.bottom < self.ground_level - 20:
+                self.can_pass_high_obstacle = False  # Не может пройти высокое препятствие
+
+            # Обновляем максимальную высоту прыжка
+            current_height = self.ground_level - self.rect.bottom
+            if current_height > self.max_jump_height:
+                self.max_jump_height = current_height
 
         # Плавная смена анимации
         self.animation_counter += 1
@@ -298,11 +882,17 @@ class Cat(pygame.sprite.Sprite):
         if not self.is_jumping and not self.is_clouding:
             self.velocity_y = -JUMP_STRENGTH
             self.is_jumping = True
+            self.jump_start_y = self.rect.bottom
+            self.max_jump_height = 0
+            self.can_pass_high_obstacle = True  # В начале прыжка может пройти препятствие
 
     def low_jump(self):
         if not self.is_jumping and not self.is_clouding:
             self.velocity_y = -LOW_JUMP_STRENGTH
             self.is_jumping = True
+            self.jump_start_y = self.rect.bottom
+            self.max_jump_height = 0
+            self.can_pass_high_obstacle = True
 
     def cloud(self):
         if not self.is_jumping:
@@ -331,12 +921,19 @@ class Cat(pygame.sprite.Sprite):
         return None
 
     def is_standing(self):
-        # Проверяет, стоит ли кот нормально (не прыгает и не приседает)
         return not self.is_jumping and not self.is_clouding and self.rect.bottom == self.ground_level
 
     def get_mouse_spawn_height(self):
-        # Возвращает фиксированную высоту для появления мышей (НИЖЕ)
         return self.mouse_spawn_height
+
+    def get_jump_status(self):
+        """Возвращает статус прыжка для отладки"""
+        if not self.is_jumping:
+            return "На земле"
+        elif self.can_pass_high_obstacle:
+            return "Начало прыжка"
+        else:
+            return "Середина/конец прыжка"
 
 
 # Препятствия
@@ -430,10 +1027,12 @@ yarn_balls = pygame.sprite.Group()
 # Создание кота
 cat = Cat()
 all_sprites.add(cat)
+cat.update_sprites()
 
 # Переменные игры
 score = 0
-coins = 0
+current_coins = 0
+total_coins = load_money_score()
 food = 0
 milk = 0
 mice_killed = 0
@@ -447,27 +1046,35 @@ next_mouse_spawn = random.randint(180, 360)  # время появления м�
 font = pygame.font.SysFont('arial', 20)  # шрифты
 small_font = pygame.font.SysFont('arial', 16)
 title_font = pygame.font.SysFont('arial', 36, bold=True)
-record_font = pygame.font.SysFont('arial', 42, bold=True)  # Большой шрифт для нового рекорда
+record_font = pygame.font.SysFont('arial', 42, bold=True)
 
 
-# Функция отрисовки текста
-def draw_text(text, color, x, y, font_obj=font, center=False):
-    img = font_obj.render(text, True, color)  # render() создает изображение с текстом
-    if center:
-        x -= img.get_width() // 2
-    screen.blit(img, (x, y))  # blit() рисует изображение текста на основном экране
+def draw_text(text, color, x, y, font_obj=font, center_x=False, center_y=False):
+    img = font_obj.render(text, True, color)
+    if center_x or center_y:
+        rect = img.get_rect()
+        if center_x:
+            rect.centerx = x
+        else:
+            rect.x = x
+        if center_y:
+            rect.centery = y
+        else:
+            rect.y = y
+        screen.blit(img, rect)
+    else:
+        screen.blit(img, (x, y))
 
 
 # Функция сброса игры
 def reset_game():
-    global score, coins, food, milk, mice_killed, game_over, game_paused, spawn_timer, item_timer, mouse_timer, next_mouse_spawn, new_record_achieved
-    # выводятся очки при окончании игры
+    global score, current_coins, food, milk, mice_killed, game_over, game_paused, spawn_timer, item_timer, mouse_timer, next_mouse_spawn, new_record_achieved
     for sprite in all_sprites:
         if sprite != cat:
             sprite.kill()
 
     score = 0
-    coins = 0
+    current_coins = 0
     food = 0
     milk = 0
     mice_killed = 0
@@ -477,7 +1084,7 @@ def reset_game():
     item_timer = 0
     mouse_timer = 0
     next_mouse_spawn = random.randint(180, 360)
-    new_record_achieved = False  # Сбрасываем флаг нового рекорда
+    new_record_achieved = False
 
     cat.rect.center = (100, SCREEN_HEIGHT - 100)
     cat.velocity_y = 0
@@ -485,6 +1092,7 @@ def reset_game():
     cat.is_clouding = False
     cat.can_shoot = True
     cat.shoot_cooldown = 0
+    cat.can_pass_high_obstacle = True
 
 
 # Функция для определения позиции текста статистики
@@ -499,37 +1107,142 @@ def get_stats_position():
 running = True
 while running:
     clock.tick(FPS)  # скорость выполнения игрового цикла.
+    # Обновляем количество монет в меню
+    game_menu.coins = total_coins + current_coins
 
     for event in pygame.event.get():  # прописываем клавиши
         if event.type == pygame.QUIT:
             update_high_score(score)
             save_high_score()
+            update_money_score(total_coins + current_coins)
+            save_money_score()
             running = False
+
+
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_p or event.key == ord('з'):
-                game_paused = not game_paused
-            elif not game_paused and not game_over:
-                if event.key == pygame.K_SPACE:
-                    cat.jump()
-                elif event.key == pygame.K_UP:
-                    cat.low_jump()
-                elif event.key == pygame.K_DOWN:
-                    cat.cloud()
-                elif event.key == pygame.K_RIGHT:
-                    yarn_ball = cat.shoot()
-                    if yarn_ball:
-                        yarn_balls.add(yarn_ball)
-                        all_sprites.add(yarn_ball)
-                elif event.key == pygame.K_b or event.key == ord('и'):
-                    current_bg = (current_bg + 1) % len(backgrounds)
-            elif (event.key == pygame.K_r or event.key == ord('к')) and game_over:
-                reset_game()
+            if event.key == pygame.K_RETURN:  # Enter
+                if not game_over:
+                    game_menu.active = not game_menu.active
+                    if game_menu.active:
+                        game_paused = True
+                    else:
+                        game_menu.show_instructions = False
+                        game_menu.show_shop = False
+                        game_menu.show_selection = False
+                        game_paused = False
+                        game_menu.save_shop_state()
+
+            if not game_menu.active:
+                if event.key == pygame.K_p or event.key == ord('з'):
+                    game_paused = not game_paused
+                elif not game_paused and not game_over:
+                    if event.key == pygame.K_SPACE:
+                        cat.jump()
+                    elif event.key == pygame.K_UP:
+                        cat.low_jump()
+                    elif event.key == pygame.K_DOWN:
+                        cat.cloud()
+                    elif event.key == pygame.K_RIGHT:
+                        yarn_ball = cat.shoot()
+                        if yarn_ball:
+                            yarn_balls.add(yarn_ball)
+                            all_sprites.add(yarn_ball)
+                    elif event.key == pygame.K_b or event.key == ord('и'):
+                        current_bg = (current_bg + 1) % len(backgrounds)
+                elif (event.key == pygame.K_r or event.key == ord('к')) and game_over:
+                    reset_game()
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                mouse_pos = pygame.mouse.get_pos()
+
+                if game_menu.active:
+                    if game_menu.show_instructions:
+                        game_menu.back_button.check_click(mouse_pos)
+                    elif game_menu.show_shop:
+                        for button in game_menu.shop_buttons:
+                            button.check_click(mouse_pos)
+                    elif game_menu.show_selection:
+                        if event.button == 1:
+                            mouse_pos = pygame.mouse.get_pos()
+
+                            available_items = [("Без аксессуара", 0, "none")]
+                            if "hat" in game_menu.purchased_items:
+                                available_items.append(("Шляпа", 1, "hat"))
+                            if "glasses" in game_menu.purchased_items:
+                                available_items.append(("Очки", 2, "glasses"))
+                            if "bow" in game_menu.purchased_items:
+                                available_items.append(("Бант", 3, "bow"))
+
+                            if len(available_items) <= 1:
+                                button_width = 200
+                                button_height = 50
+                                button_y = 200
+                                shop_rect = pygame.Rect(SCREEN_WIDTH // 2 - button_width // 2, button_y, button_width,
+                                                        button_height)
+                                if shop_rect.collidepoint(mouse_pos):
+                                    game_menu.back_to_shop()
+                            else:
+
+                                card_width = 150
+                                card_height = 200
+                                card_margin = 15
+
+                                total_width = len(available_items) * card_width + (
+                                        len(available_items) - 1) * card_margin
+                                start_x = (SCREEN_WIDTH - total_width) // 2
+                                y_pos = 180
+
+                                for i, (name, accessory_id, item_id) in enumerate(available_items):
+                                    card_x = start_x + i * (card_width + card_margin)
+
+                                    button_rect = pygame.Rect(card_x + 20, y_pos + card_height - 40, card_width - 40,
+                                                              30)
+                                    if button_rect.collidepoint(mouse_pos):
+                                        game_menu.select_accessory(accessory_id)
+
+                                button_width = 180
+                                button_height = 45
+                                button_spacing = 20
+                                button_y = y_pos + card_height + 40
+                                total_buttons_width = (button_width * 2) + button_spacing
+                                buttons_start_x = (SCREEN_WIDTH - total_buttons_width) // 2
+
+                                continue_rect = pygame.Rect(buttons_start_x, button_y, button_width, button_height)
+                                shop_rect = pygame.Rect(buttons_start_x + button_width + button_spacing, button_y,
+                                                        button_width, button_height)
+
+                                if continue_rect.collidepoint(mouse_pos):
+                                    game_menu.continue_game()
+                                elif shop_rect.collidepoint(mouse_pos):
+                                    game_menu.back_to_shop()
+                    else:
+                        for button in game_menu.menu_buttons:
+                            button.check_click(mouse_pos)
+
+    if game_menu.active:
+        mouse_pos = pygame.mouse.get_pos()
+        if game_menu.show_instructions:
+            game_menu.back_button.check_hover(mouse_pos)
+        elif game_menu.show_shop:
+            for button in game_menu.shop_buttons:
+                button.check_hover(mouse_pos)
+        elif game_menu.show_selection:
+            if hasattr(game_menu, 'remove_button') and selected_accessory_type > 0:
+                game_menu.remove_button.check_hover(mouse_pos)
+            if hasattr(game_menu, 'back_selection_button'):
+                game_menu.back_selection_button.check_hover(mouse_pos)
+            if hasattr(game_menu, 'current_selection_buttons'):
+                for button in game_menu.current_selection_buttons:
+                    button.check_hover(mouse_pos)
+        else:
+            for button in game_menu.menu_buttons:
+                button.check_hover(mouse_pos)
 
     keys = pygame.key.get_pressed()  # происходит при зажатии клавиш
     if not keys[pygame.K_DOWN]:
         cat.stand_up()
 
-    if not game_over and not game_paused:
+    if not game_over and not game_paused and not game_menu.active:
         all_sprites.update()
 
         bg_x -= BACKGROUND_SPEED  # прокрутка фона
@@ -568,7 +1281,6 @@ while running:
             mouse_timer = 0
             next_mouse_spawn = random.randint(180, 480)
 
-            # Мышь появляется на фиксированной НИЗКОЙ высоте
             mouse = Mouse(cat.get_mouse_spawn_height())
             mice.add(mouse)
             all_sprites.add(mouse)
@@ -576,9 +1288,18 @@ while running:
         # Проверка столкновений с препятствиями
         hits = pygame.sprite.spritecollide(cat, obstacles, False)
         for hit in hits:
-            if hit.type == "jump" and not cat.is_jumping:
-                game_over = True
-                update_high_score(score)
+            if hit.type == "jump":  # Для высокого препятствия
+                if not cat.is_jumping:
+                    # На земле - столкновение
+                    game_over = True
+                    update_high_score(score)
+                elif cat.is_jumping and not cat.can_pass_high_obstacle:
+                    # В середине/конце прыжка - столкновение
+                    game_over = True
+                    update_high_score(score)
+                # Если cat.can_pass_high_obstacle == True и cat.is_jumping == True
+                # то кот успешно перепрыгнул
+
             elif hit.type == "low_jump" and not cat.is_jumping:
                 game_over = True
                 update_high_score(score)
@@ -605,8 +1326,9 @@ while running:
         collected = pygame.sprite.spritecollide(cat, items, True)
         for item in collected:
             if item.type == "coin":
-                coins += 1
+                current_coins += 1
                 score += 10
+                update_money_score(total_coins + current_coins)
             elif item.type == "fish":
                 food += 1
                 score += 15
@@ -623,6 +1345,8 @@ while running:
             high_score = score
         update_high_score(score)
 
+        update_money_score(total_coins + current_coins)
+
     # Рисуем фоны
     screen.blit(backgrounds[current_bg], (bg_x, 0))
     screen.blit(backgrounds[current_bg], (bg_x + SCREEN_WIDTH, 0))
@@ -635,15 +1359,24 @@ while running:
     all_sprites.draw(screen)
 
     text_color = get_text_color()
-    stats_x = get_stats_position()
+    stats_x = SCREEN_WIDTH - 180  # Немного левее для лучшего выравнивания
+    stats_start_y = 20
+    stats_spacing = 25
 
     # Отрисовка статистики
-    draw_text(f"Рекорд: {int(high_score)}", text_color, stats_x, 10)
-    draw_text(f"Монеты: {coins}", text_color, stats_x, 35)
-    draw_text(f"Еда: {food}", text_color, stats_x, 60)
-    draw_text(f"Молоко: {milk}", text_color, stats_x, 85)
-    draw_text(f"Мыши: {mice_killed}", text_color, stats_x, 110)
-    draw_text(f"Счет: {int(score)}", text_color, stats_x, 135)
+    draw_text(f"Рекорд: {int(high_score)}", text_color, stats_x, stats_start_y)
+    draw_text(f"Монеты: {total_coins + current_coins}", text_color, stats_x, stats_start_y + stats_spacing)
+    draw_text(f"Еда: {food}", text_color, stats_x, stats_start_y + stats_spacing * 2)
+    draw_text(f"Молоко: {milk}", text_color, stats_x, stats_start_y + stats_spacing * 3)
+    draw_text(f"Мыши: {mice_killed}", text_color, stats_x, stats_start_y + stats_spacing * 4)
+    draw_text(f"Счет: {int(score)}", text_color, stats_x, stats_start_y + stats_spacing * 5)
+
+    # Отображение статуса прыжка (для отладки)
+    # draw_text(f"Статус: {cat.get_jump_status()}", RED, 15, SCREEN_HEIGHT - 50, small_font)
+
+    instructions_left_x = 15  # Отступ слева
+    instructions_start_y = 20
+    instructions_spacing = 22  # Интервал между
 
     # Отрисовка инструкций
     instructions = [
@@ -657,8 +1390,12 @@ while running:
         "R - Перезапуск"
     ]
 
-    for i, instruction in enumerate(instructions):
-        draw_text(instruction, text_color, 10, 10 + i * 20, small_font)
+    # Рисуем инструкции с учетом пустых строк
+    current_y = instructions_start_y
+    for instruction in instructions:
+        if instruction:  # Если строка не пустая
+            draw_text(instruction, text_color, instructions_left_x, current_y, small_font)
+        current_y += instructions_spacing
 
     # Экран паузы
     if game_paused and not game_over:
@@ -677,36 +1414,47 @@ while running:
         overlay.fill(BLACK)
         screen.blit(overlay, (0, 0))
 
+        # Центральные координаты для всего экрана Game Over
+        center_x = SCREEN_WIDTH // 2
+        game_over_start_y = 120
 
-        # Отображение нового рекорда, если он достигнут
         if new_record_achieved:
-            # Рисуем золотую рамку для нового рекорда
-            pygame.draw.rect(screen, GOLD, (SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 70, 400, 60), 4,
+            pygame.draw.rect(screen, GOLD, (center_x - 220, game_over_start_y - 20, 440, 70), 4, border_radius=12)
+            pygame.draw.rect(screen, (30, 30, 30, 220), (center_x - 216, game_over_start_y - 16, 432, 62),
                              border_radius=10)
-            pygame.draw.rect(screen, (30, 30, 30, 200), (SCREEN_WIDTH // 2 - 196, SCREEN_HEIGHT // 2 - 66, 392, 52),
-                             border_radius=8)
 
             # Текст нового рекорда
-            draw_text("НОВЫЙ РЕКОРД!", GOLD, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 62, record_font, center=True)
-            # Смещаем остальную статистику ниже
-            stat_y_offset = 25
+            draw_text("НОВЫЙ РЕКОРД!", GOLD, center_x, game_over_start_y + 15, record_font, center_x=True,
+                      center_y=True)
+            game_over_start_y += 90  # Сдвигаем остальное содержимое ниже
         else:
-            stat_y_offset = 0
+            game_over_start_y += 20
 
-        draw_text("GAME OVER", RED, SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 70 - stat_y_offset * 2, title_font)
+        draw_text("GAME OVER", RED, center_x, game_over_start_y, title_font, center_x=True, center_y=True)
+        # Статистика Game Over
+        stats_start_y = game_over_start_y + 60
+        stat_spacing = 35
 
-        draw_text(f"Финальный счет: {int(score)}", WHITE, SCREEN_WIDTH // 2 - 80,
-                  SCREEN_HEIGHT // 2 - 20 + stat_y_offset)
-        draw_text(f"Собрано монет: {coins}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 10 + stat_y_offset)
-        draw_text(f"Собрано еды: {food}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 40 + stat_y_offset)
-        draw_text(f"Собрано молока: {milk}", WHITE, SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 70 + stat_y_offset)
-        draw_text(f"Убито мышек: {mice_killed}", WHITE, SCREEN_WIDTH // 2 - 80,
-                  SCREEN_HEIGHT // 2 + 100 + stat_y_offset)
-        draw_text("Нажми R для перезапуска", WHITE, SCREEN_WIDTH // 2 - 90, SCREEN_HEIGHT // 2 + 140 + stat_y_offset,
-                  small_font)
+        stats_items = [
+            f"Финальный счет: {int(score)}",
+            f"Собрано монет: {total_coins + current_coins}",
+            f"Собрано еды: {food}",
+            f"Собрано молока: {milk}",
+            f"Убито мышек: {mice_killed}"
+        ]
 
+        for i, stat in enumerate(stats_items):
+            draw_text(stat, WHITE, center_x, stats_start_y + i * stat_spacing, font, center_x=True, center_y=True)
+
+        # Инструкция для перезапуска
+        restart_y = stats_start_y + len(stats_items) * stat_spacing + 30
+        draw_text("Нажми R для перезапуска", WHITE, center_x, restart_y, small_font, center_x=True, center_y=True)
+    # Отрисовка меню
+    game_menu.draw(screen)
     pygame.display.flip()
 
 save_high_score(high_score)
+save_money_score(total_coins + current_coins)
+save_game_state()
 pygame.quit()
 sys.exit()

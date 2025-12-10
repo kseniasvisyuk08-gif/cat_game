@@ -1,5 +1,9 @@
 {
-    "purchased_items": [],
-    "coins": 0,
-    "selected_accessory": 0
+    "purchased_items": [
+        "glasses",
+        "hat",
+        "bow"
+    ],
+    "coins": 910,
+    "selected_accessory": 1
 }
