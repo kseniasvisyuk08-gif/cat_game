@@ -938,12 +938,26 @@ class Cat(pygame.sprite.Sprite):
 
 # Препятствия
 class Obstacle(pygame.sprite.Sprite):
-    def __init__(self):
+    def __init__(self, is_group=False):
         super().__init__()
-        index = random.randint(0, len(pregrada_images) - 1)
+
+        # Если это часть группы, исключаем облака из возможных типов
+        if is_group:
+            # Создаем списки индексов, которые НЕ являются облаками
+            valid_indices = [i for i, t in enumerate(pregrada_types) if t != "cloud"]
+            if not valid_indices:
+                # Если вдруг нет подходящих препятствий (только облака), используем первый
+                index = 0
+            else:
+                index = random.choice(valid_indices)
+        else:
+            # Обычный выбор (все типы доступны)
+            index = random.randint(0, len(pregrada_images) - 1)
+
         self.image = pregrada_images[index]
         self.type = pregrada_types[index]
         self.rect = self.image.get_rect()
+
         if self.type == "cloud":
             self.rect.bottom = SCREEN_HEIGHT - 80
         else:
@@ -956,6 +970,17 @@ class Obstacle(pygame.sprite.Sprite):
         if self.rect.right < 0:
             self.kill()
 
+    @staticmethod
+    def can_spawn_group(last_obstacle_rect):
+        """Проверяет, можно ли безопасно заспавнить группу"""
+        if not last_obstacle_rect:
+            return True
+
+        # Проверяем расстояние до последнего препятствия
+        distance_to_last = SCREEN_WIDTH - last_obstacle_rect.right
+        safe_distance = 300  # Минимальное расстояние для группового спавна
+
+        return distance_to_last > safe_distance
 
 # Предметы для сбора
 class Item(pygame.sprite.Sprite):
@@ -1253,9 +1278,29 @@ while running:
         spawn_timer += 1
         if spawn_timer >= 90:
             spawn_timer = 0
-            obstacle = Obstacle()  # Создание новых препятствий через регулярные промежутки времени(Создает новый экземпляр класса)
-            obstacles.add(obstacle)  # добавляет в специальную группу для препятствий
-            all_sprites.add(obstacle)  # добавляет в общую группу всех спрайтов
+
+            # Получаем самое правое препятствие на экране
+            last_obstacle = None
+            if obstacles:
+                last_obstacle = max(obstacles, key=lambda o: o.rect.right)
+
+            # Решаем, создавать ли группу (15% шанс + проверка на безопасность)
+            if random.random() < 0.15 and Obstacle.can_spawn_group(last_obstacle.rect if last_obstacle else None):
+                # При создании группы не используем облака
+                for i in range(2):
+                    obstacle = Obstacle(is_group=True)  # Передаем флаг, что это часть группы
+
+                    # Для препятствий в группе (кроме первого) немного смещаем позицию
+                    if i > 0:
+                        obstacle.rect.x += i * 245 # Сдвигаем вправо на 245 пикселей
+
+                    obstacles.add(obstacle)
+                    all_sprites.add(obstacle)
+            else:
+                # Обычный одиночный спавн
+                obstacle = Obstacle()
+                obstacles.add(obstacle)
+                all_sprites.add(obstacle)
 
         # Спавн предметов
         item_timer += 1
