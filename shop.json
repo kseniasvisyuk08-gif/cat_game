@@ -1,5 +1,9 @@
 {
     "purchased_items": [],
+<<<<<<< HEAD
     "coins": 0,
+=======
+    "coins": 2,
+>>>>>>> 5687eabeb7d0888b78247df56f0fd2e501198a6b
     "selected_accessory": 0
 }
